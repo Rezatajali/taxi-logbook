@@ -14,6 +14,7 @@ cd "$project_root"
 # Use the product name in installed Android apps and browser tabs.
 python3 - <<'PY'
 import json
+import re
 from pathlib import Path
 manifest = Path('android/app/src/main/AndroidManifest.xml')
 manifest.write_text(manifest.read_text().replace('android:label="taxi_logbook"', 'android:label="Taxi Logbuch"'))
@@ -28,5 +29,9 @@ web_manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 # Cloud Flutter plugins require Android API 23 or later.
 gradle = Path('android/app/build.gradle.kts')
 gradle.write_text(gradle.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 23'))
+# Firebase Auth's Android dependency has Kotlin 2.3 metadata.
+settings = Path('android/settings.gradle.kts')
+settings.write_text(re.sub(r'(id\("org\.jetbrains\.kotlin\.android"\) version ")[^"]+(")',
+    r'\g<1>2.3.0\2', settings.read_text()))
 PY
 flutter pub get
