@@ -56,8 +56,10 @@ void main() {
     await tester.enterText(find.byKey(const Key('amount')), '22,70');
     await tester.tap(find.byKey(const Key('fare-type-button')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fare-type-wheel')), findsOneWidget);
     final scrollable = find.descendant(
-        of: find.byKey(const Key('fare-type-wheel')), matching: find.byType(Scrollable));
+        of: find.byKey(const Key('fare-type-wheel')),
+        matching: find.byWidgetPredicate((widget) => widget is Scrollable));
     final state = tester.state<ScrollableState>(scrollable);
     state.position.jumpTo(48.0 * 3); // Rechnung
     await tester.pumpAndSettle();
