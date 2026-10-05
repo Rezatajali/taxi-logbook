@@ -28,7 +28,12 @@ data.update(name='Taxi Logbuch', short_name='Logbuch', description='Dein Fahrten
 web_manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 # Cloud Flutter plugins require Android API 23 or later.
 gradle = Path('android/app/build.gradle.kts')
-gradle.write_text(gradle.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 23'))
+android_build = gradle.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 23')
+# Kotlin 2.3 requires the typed compilerOptions DSL (Flutter 3.35's shell uses the old DSL).
+android_build, migrated = re.subn(r'    kotlinOptions\s*\{[^}]*\}\n', '', android_build)
+if migrated:
+    android_build += '\nkotlin {\n    compilerOptions {\n        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)\n    }\n}\n'
+gradle.write_text(android_build)
 # Firebase Auth's Android dependency has Kotlin 2.3 metadata.
 settings = Path('android/settings.gradle.kts')
 settings.write_text(re.sub(r'(id\("org\.jetbrains\.kotlin\.android"\) version ")[^"]+(")',
