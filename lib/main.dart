@@ -616,10 +616,12 @@ class _TripEditorState extends State<TripEditor> {
       ));
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) setState(() {
-        busy = false;
-        error = 'Nicht gespeichert. Bitte erneut versuchen.';
-      });
+      if (mounted) {
+        setState(() {
+          busy = false;
+          error = 'Nicht gespeichert. Bitte erneut versuchen.';
+        });
+      }
     }
   }
 
@@ -699,8 +701,9 @@ class _TripEditorState extends State<TripEditor> {
                   return;
                 }
                 final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(at));
-                if (time != null && mounted) setState(() =>
-                    at = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                if (time != null && mounted) {
+                  setState(() => at = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+                }
               },
             ),
             const SizedBox(height: 16),
