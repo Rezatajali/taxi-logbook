@@ -1,0 +1,135 @@
+enum PaymentMethod {
+  cash('Bar'),
+  card('Karte'),
+  platform('Über Plattform');
+
+  const PaymentMethod(this.label);
+  final String label;
+}
+
+// Store money as whole cents. Never add currency using floating point.
+int? parseCents(String input) {
+  final normalized = input.trim().replaceAll(',', '.');
+  if (!RegExp(r'^\d{1,6}(\.\d{1,2})?$').hasMatch(normalized)) return null;
+  final parts = normalized.split('.');
+  final result = int.parse(parts[0]) * 100 +
+      (parts.length == 2 ? int.parse(parts[1].padRight(2, '0')) : 0);
+  return result > 0 ? result : null;
+}
+
+double? parseKilometers(String input) {
+  if (input.trim().isEmpty) return null;
+  final value = double.tryParse(input.trim().replaceAll(',', '.'));
+  return value != null && value.isFinite && value > 0 && value <= 10000
+      ? value
+      : null;
+}
+
+class Trip {
+  const Trip({
+    required this.id,
+    required this.at,
+    required this.cents,
+    required this.source,
+    required this.payment,
+    this.kilometers,
+    this.note = '',
+  });
+
+  final String id;
+  final DateTime at;
+  final int cents;
+  final String source;
+  final PaymentMethod payment;
+  final double? kilometers;
+  final String note;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'at': at.toIso8601String(),
+        'cents': cents,
+        'source': source,
+        'payment': payment.name,
+        'kilometers': kilometers,
+        'note': note,
+      };
+
+  factory Trip.fromJson(Map<String, dynamic> json) {
+    final cents = json['cents'] as int;
+    final kilometers = (json['kilometers'] as num?)?.toDouble();
+    if (cents <= 0 ||
+        (kilometers != null &&
+            (!kilometers.isFinite || kilometers <= 0 || kilometers > 10000))) {
+      throw const FormatException('Ungültige Fahrtdaten.');
+    }
+    return Trip(
+      id: json['id'] as String,
+      at: DateTime.parse(json['at'] as String),
+      cents: cents,
+      source: json['source'] as String,
+      payment: PaymentMethod.values.byName(json['payment'] as String),
+      kilometers: kilometers,
+      note: json['note'] as String? ?? '',
+    );
+  }
+}
+
+bool sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+List<Trip> tripsInMonth(Iterable<Trip> trips, DateTime month) => trips
+    .where((t) => t.at.year == month.year && t.at.month == month.month)
+    .toList();
+
+class TripSummary {
+  TripSummary(Iterable<Trip> input) : trips = List.unmodifiable(input);
+  final List<Trip> trips;
+
+  int get totalCents => trips.fold(0, (sum, trip) => sum + trip.cents);
+  int get cashCents => trips
+      .where((t) => t.payment == PaymentMethod.cash)
+      .fold(0, (sum, trip) => sum + trip.cents);
+  int get workingDays => trips
+      .map((t) => DateTime(t.at.year, t.at.month, t.at.day))
+      .toSet()
+      .length;
+  double get averageWorkingDayCents =>
+      workingDays == 0 ? 0 : totalCents / workingDays;
+  int get tripsWithDistance => trips.where((t) => t.kilometers != null).length;
+  double get totalKilometers =>
+      trips.fold(0, (sum, trip) => sum + (trip.kilometers ?? 0));
+
+  // Missing distances must not inflate revenue/km. Only include matching
+  // revenue and distance from the same measured trips.
+  double? get eurosPerKilometer {
+    if (totalKilometers == 0) return null;
+    final measuredCents = trips
+        .where((t) => t.kilometers != null)
+        .fold(0, (sum, trip) => sum + trip.cents);
+    return measuredCents / 100 / totalKilometers;
+  }
+
+  Map<String, int> get bySource {
+    final result = <String, int>{};
+    for (final trip in trips) {
+      result.update(trip.source, (v) => v + trip.cents,
+          ifAbsent: () => trip.cents);
+    }
+    return result;
+  }
+
+  Map<PaymentMethod, int> get byPayment => {
+        for (final method in PaymentMethod.values)
+          method: trips
+              .where((t) => t.payment == method)
+              .fold(0, (sum, t) => sum + t.cents),
+      };
+
+  List<int> dailyCents(DateTime month) {
+    final days = List<int>.filled(DateTime(month.year, month.month + 1, 0).day, 0);
+    for (final trip in tripsInMonth(trips, month)) {
+      days[trip.at.day - 1] += trip.cents;
+    }
+    return days;
+  }
+}
