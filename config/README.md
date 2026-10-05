@@ -1,18 +1,31 @@
-# Firebase-Verbindung vorbereiten
+# Firebase Web
 
-Projekt: `taxi-logbook-d1104`. Die öffentlichen Web-App-Einstellungen stehen in
-`firebase-web.json`. Dies sind keine Admin-Zugangsdaten und keine Sicherheitsregeln.
-Die Datei ist noch nicht in die laufende Flutter-App eingebunden.
+Projekt: `taxi-logbook-d1104`. Die öffentlichen Client-Einstellungen stehen in
+`firebase-web.json` und in `lib/firebase_web_options.dart`. Admin-Schlüssel und
+Passwörter werden nicht im Repository gespeichert.
 
-Nächste Schritte im Firebase-Konto:
+Die Webversion verwendet Firebase Authentication (E-Mail/Passwort, Registrierung,
+Passwort-Reset-Mail) und Cloud Firestore. Firebase übernimmt die gehostete
+Passwort-Reset-Seite; die Anwendung speichert keine Passwörter in Firestore.
 
-1. Authentication → Sign-in method → Email/Password aktivieren.
-2. Cloud Firestore in einer passenden EU-Region im Produktionsmodus anlegen.
-3. Regeln für `users/{uid}/trips/{tripId}` veröffentlichen, die ausschließlich den
-   angemeldeten Besitzer zulassen; keine offenen Testregeln verwenden.
-4. Firebase Flutter SDK, Anmeldung und Cloud-Store implementieren und mit zwei
-   Konten auf Datenisolation prüfen. Lokale Alt-Daten nur auf ausdrücklichen
-   Benutzerwunsch übernehmen, nicht automatisch dem ersten Konto zuordnen.
+Fahrten: `users/{uid}/trips/{tripId}`. Eigene Quellen:
+`users/{uid}/settings/logbook`. Die Backend-Instanz ist an einen UID gebunden.
+Beim Kontowechsel werden Store und Listener entsorgt. Die Regeln entsprechen
+`firestore.rules` und müssen im Firebase-Projekt veröffentlicht sein.
 
-Android erhält später eine eigene Firebase-App-Registrierung. Die Web-App-ID
-wird nicht als Android-App-ID verwendet. Der aktuelle Preview bleibt lokal.
+Lokale Alt-Daten bleiben unangetastet und über „Lokale Vorschau“ erreichbar.
+Sie werden nicht automatisch dem ersten angemeldeten Konto zugeordnet.
+Die Webversion lädt beim Start die jeweilige Konto-Historie. Offline-Writes
+sind als ausstehend markiert; Abmelden ist bis zur Synchronisierung gesperrt.
+Ein JSON-Export umfasst nur die Daten des gerade geöffneten Logbuchs.
+
+Android benötigt noch eine eigene App-Registrierung mit Paketnamen
+`de.tajalli.taxi_logbook` und deren Firebase-Konfiguration. Die Android-Test-APK
+bleibt deshalb vorerst lokal. Für Verteilung und Updates braucht ein Release
+zudem einen dauerhaft gesicherten Signaturschlüssel.
+
+`node tool/verify-firebase.mjs` prüft das reale Projekt mit zwei temporären
+Konten: Registrierung, Anmeldung, eigene CRUD-Operationen sowie Verweigerung
+fremder und anonymer Zugriffe. Alle Testdokumente/Konten werden in `finally`
+entfernt. Es werden keine E-Mails versandt und keine bestehenden Daten angefasst.
+Der GitHub-Workflow führt diese Prüfung nach den Flutter-Tests aus.

@@ -1,4 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'auth_screen.dart';
+import 'auth_service.dart';
+import 'cloud_store.dart';
+import 'firebase_web_options.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,7 +30,19 @@ Future<void> main() async {
   try {
     final store = LogbookStore(await SharedPreferences.getInstance());
     store.load();
-    runApp(LogbookApp(store: store));
+    Widget? home;
+    if (kIsWeb) {
+      await Firebase.initializeApp(options: firebaseWebOptions);
+      await FirebaseAuth.instance.setLanguageCode('de');
+      home = AuthGate(
+        auth: FirebaseDriverAuth(FirebaseAuth.instance), localStore: store,
+        createStore: (account) => CloudLogbookStore(store.preferences,
+          FirestoreLogbookBackend(FirebaseFirestore.instance, account.uid)),
+        homeBuilder: (data, account, exit) => LogbookHome(store: data,
+          accountEmail: account?.email, onExit: exit),
+      );
+    }
+    runApp(LogbookApp(store: store, home: home));
   } catch (_) {
     runApp(MaterialApp(
       home: Scaffold(
@@ -34,7 +54,7 @@ Future<void> main() async {
               children: [
                 const Icon(Icons.storage_outlined, size: 48),
                 const SizedBox(height: 20),
-                const Text('Lokale Daten können nicht geladen werden.',
+                const Text('Die App konnte nicht gestartet werden.',
                     textAlign: TextAlign.center),
                 const SizedBox(height: 12),
                 const Text(
@@ -52,7 +72,8 @@ Future<void> main() async {
 }
 
 class LogbookApp extends StatelessWidget {
-  const LogbookApp({super.key, required this.store});
+  const LogbookApp({super.key, required this.store, this.home});
+  final Widget? home;
   final LogbookStore store;
 
   @override
@@ -90,12 +111,14 @@ class LogbookApp extends StatelessWidget {
             ),
           ),
         ),
-        home: LogbookHome(store: store),
+        home: home ?? LogbookHome(store: store),
       );
 }
 
 class LogbookHome extends StatefulWidget {
-  const LogbookHome({super.key, required this.store});
+  const LogbookHome({super.key, required this.store, this.accountEmail, this.onExit});
+  final String? accountEmail;
+  final VoidCallback? onExit;
   final LogbookStore store;
   @override
   State<LogbookHome> createState() => _LogbookHomeState();
@@ -138,7 +161,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                 padding: const EdgeInsets.only(right: 16),
                 child: Chip(
                   avatar: const Icon(Icons.phone_android, size: 16),
-                  label: const Text('Lokal'),
+                  label: Text(widget.store.storageLabel),
                   side: BorderSide.none,
                   backgroundColor: surface,
                 ),
@@ -151,12 +174,24 @@ class _LogbookHomeState extends State<LogbookHome> {
                 constraints: const BoxConstraints(maxWidth: 1000),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
-                  child: switch (tab) {
+                  child: Column(children: [
+                  if (widget.store.loading) const Padding(
+                    padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+                  if (widget.store.syncError != null) Card(child: Padding(
+                    padding: const EdgeInsets.all(16), child: Column(children: [
+                      Text(widget.store.syncError!),
+                      TextButton(onPressed: widget.store.retry, child: const Text('Erneut versuchen')),
+                    ]))),
+                  if (widget.store.pendingWrites) const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.')),
+                  switch (tab) {
                     0 => todayPage(),
                     1 => tripsPage(),
                     2 => monthPage(),
                     _ => settingsPage(),
                   },
+                ]),
                 ),
               ),
             ),
@@ -164,7 +199,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           floatingActionButton: tab == 3
               ? null
               : FloatingActionButton.extended(
-                  onPressed: widget.store.saving ? null : () => editTrip(),
+                  onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
                   backgroundColor: accent,
                   foregroundColor: canvas,
                   icon: const Icon(Icons.add),
@@ -334,20 +369,46 @@ class _LogbookHomeState extends State<LogbookHome> {
         ]),
       )).toList());
 
-  Widget tripTile(Trip trip) => ListTile(
+  Future<void> deleteTrip(Trip trip) async {
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Fahrt löschen?'),
+      content: Text('${money(trip.cents)} · ${trip.source} wird entfernt.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+      ],
+    ));
+    if (confirmed != true || !mounted) return;
+    try { await widget.store.deleteTrip(trip.id); }
+    catch (_) { if (mounted) message('Löschen nicht möglich. Bitte erneut versuchen.'); }
+  }
+
+  Widget tripTile(Trip trip) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(children: [
+      ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: CircleAvatar(
-          backgroundColor: canvas,
-          child: Icon(trip.payment == PaymentMethod.cash
-              ? Icons.payments_outlined : Icons.credit_card, color: ink),
-        ),
         title: Text(trip.source, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · '
-            '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}'),
+          '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}'),
         trailing: Text(money(trip.cents),
-            style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
-        onTap: () => editTrip(trip),
-      );
+          style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
+        onTap: widget.store.ready && !widget.store.saving ? () => editTrip(trip) : null,
+      ),
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(key: ValueKey('edit-${trip.id}'),
+          onPressed: widget.store.ready && !widget.store.saving ? () => editTrip(trip) : null,
+          icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Bearbeiten'))),
+        const SizedBox(width: 12),
+        Expanded(child: TextButton.icon(key: ValueKey('delete-${trip.id}'),
+          onPressed: widget.store.ready && !widget.store.saving ? () => deleteTrip(trip) : null,
+          icon: const Icon(Icons.delete_outline, size: 18), label: const Text('Löschen'),
+          style: TextButton.styleFrom(foregroundColor: Colors.red.shade300,
+            minimumSize: const Size(0, 48)))),
+      ]),
+      const Divider(),
+    ]),
+  );
 
   Widget tripsPage() {
     final trips = widget.store.trips.where((t) =>
@@ -458,25 +519,32 @@ class _LogbookHomeState extends State<LogbookHome> {
   }
 
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        title('Dein Logbuch', 'Quellen und lokale Daten verwalten.'),
-        panel('Speicherung auf diesem Gerät', const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Diese erste Version speichert Daten lokal. Es gibt noch keine '
-                'Anmeldung und keine Synchronisierung zwischen Geräten.'),
-            SizedBox(height: 12),
-            Text('Im Browser können gelöschte Website-Daten oder der private '
-                'Modus zum Verlust der Einträge führen. Nutze die Exportfunktion '
-                'für eine Kopie. Für den Mehrbenutzerbetrieb wird Firebase ergänzt.'),
-          ],
-        )),
+        title('Dein Logbuch', 'Quellen, Konto und Daten verwalten.'),
+        if (widget.onExit != null) panel(widget.store.isCloud ? 'Dein Konto' : 'Lokale Vorschau',
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (widget.accountEmail != null) Text(widget.accountEmail!),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(onPressed: widget.store.saving || widget.store.pendingWrites
+              ? null : widget.onExit, icon: const Icon(Icons.logout),
+              label: Text(widget.store.isCloud ? 'Abmelden' : 'Zur Anmeldung')),
+          ])),
+        panel(widget.store.isCloud ? 'Cloud-Speicherung' : 'Speicherung auf diesem Gerät',
+          Text(widget.store.isCloud
+            ? 'Jede Fahrt wird separat in deinem Konto gespeichert. Mit derselben '
+              'E-Mail kannst du deine Fahrten auf anderen Geräten öffnen. '
+              'Bei „Offline / Cache“ stammen Daten aus dem Zwischenspeicher; '
+              'ausstehende Änderungen benötigen eine Internetverbindung.'
+            : 'Diese Vorschau speichert nur lokal in diesem Browser. Einträge '
+              'werden nicht automatisch in ein Cloud-Konto übernommen. '
+              'Bitte eine Exportkopie sichern. Die Android-Testversion ist '
+              'bis zur eigenen Firebase-Registrierung ebenfalls lokal.')),
         panel('Deine Fahrtquellen', Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(spacing: 8, runSpacing: 8,
                 children: widget.store.sources.map((s) => Chip(label: Text(s))).toList()),
             const SizedBox(height: 12),
-            OutlinedButton.icon(onPressed: widget.store.saving ? null : addSource,
+            OutlinedButton.icon(onPressed: (widget.store.saving || !widget.store.ready) ? null : addSource,
                 icon: const Icon(Icons.add), label: const Text('Quelle hinzufügen')),
           ],
         )),
@@ -581,6 +649,7 @@ class _TripEditorState extends State<TripEditor> {
   late final TextEditingController distance;
   late final TextEditingController note;
   late DateTime at;
+  late String tripId;
   late String source;
   late PaymentMethod payment;
   bool busy = false;
@@ -618,6 +687,7 @@ class _TripEditorState extends State<TripEditor> {
   void initState() {
     super.initState();
     final trip = widget.trip;
+    tripId = trip?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     amount = TextEditingController(text: trip == null ? ''
         : (trip.cents / 100).toStringAsFixed(2).replaceAll('.', ','));
     distance = TextEditingController(text: trip?.kilometers == null ? ''
@@ -641,7 +711,7 @@ class _TripEditorState extends State<TripEditor> {
     setState(() { busy = true; error = null; });
     try {
       await widget.store.saveTrip(Trip(
-        id: widget.trip?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+        id: tripId,
         at: at,
         cents: parseCents(amount.text)!,
         source: source,
@@ -725,6 +795,21 @@ class _TripEditorState extends State<TripEditor> {
                 ),
               )),
             ]),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              onPressed: busy ? null : save,
+              icon: busy
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.check),
+              label: const Text('Fahrt speichern'),
+            )),
+            if (widget.trip != null) Center(child: TextButton.icon(
+              onPressed: busy ? null : delete,
+              icon: const Icon(Icons.delete_outline), label: const Text('Fahrt löschen'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+            )),
+
             const SizedBox(height: 12),
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -780,19 +865,6 @@ class _TripEditorState extends State<TripEditor> {
                 decoration: const InputDecoration(labelText: 'Notiz (optional)')),
             if (error != null) Padding(padding: const EdgeInsets.only(bottom: 12),
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: busy ? null : save,
-              icon: busy
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.check),
-              label: const Text('Fahrt speichern'),
-            )),
-            if (widget.trip != null) Center(child: TextButton.icon(
-              onPressed: busy ? null : delete,
-              icon: const Icon(Icons.delete_outline), label: const Text('Fahrt löschen'),
-              style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
-            )),
             const SizedBox(height: 16),
           ],
         )),

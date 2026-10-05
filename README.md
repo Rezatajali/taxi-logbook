@@ -20,15 +20,22 @@ Tagesschichten gruppieren die Fahrten nach Datum; Start-/Endzeiten folgen späte
 
 ## Status
 
-**Noch kein Mehrbenutzerbetrieb:** Firebase Authentication, Cloud Firestore,
-serverseitige Zugriffsregeln und geräteübergreifende Synchronisierung sind noch nicht verbunden.
-Es werden keine Passwörter abgefragt. Alle lokalen Einträge gehören zum selben lokalen Logbuch.
-GPS sowie Kilometerstände und Arbeitszeiten für komplette Schichten folgen später.
-Die angezeigten Beträge sind Umsatz vor Provisionen, Steuern und Fahrzeugkosten, kein Nettogewinn.
+Die Webversion hat E-Mail/Passwort-Anmeldung, Registrierung mit Passwortbestätigung,
+„Passwort vergessen?“ und Cloud Firestore für einzelne Fahrten je Fahrer.
+Die vom Benutzer eingerichteten Zugriffsregeln werden im echten Firebase-Projekt
+mit zwei temporären Konten im CI geprüft. Die Zustellung einer Reset-Mail muss
+mit einer eigenen erreichbaren E-Mail-Adresse abschließend geprüft werden.
 
-Der lokale Speicher ist für das Testen vorgesehen, nicht als einzige dauerhafte Sicherung
-betrieblicher Daten. Das Löschen der App oder der Browserdaten kann Einträge entfernen.
-Ein JSON-Export kann als Kopie gesichert werden; eine Importfunktion folgt später.
+Deutliche Bearbeiten-/Löschen-Schaltflächen stehen direkt an jeder Fahrt.
+Der Speichern-Knopf im Fahrtformular steht vor den optionalen Feldern.
+Lokale Alt-Daten sind über „Lokale Vorschau / bisherige Einträge“ weiter erreichbar;
+sie werden nicht automatisch einem neuen Konto zugeordnet.
+
+**Android-Test-APK bleibt lokal**, bis eine Android-App im Firebase-Projekt
+registriert und deren eigene Konfiguration ergänzt ist. Die Web-App-ID wird
+nicht für Android zweckentfremdet. GPS, Kilometerstände und Arbeitszeiten für
+vollständige Schichten folgen später. Umsatz ist vor Provisionen, Steuern und
+Fahrzeugkosten, kein Nettogewinn.
 
 ## Lokal starten
 
@@ -61,15 +68,21 @@ Die temporären CI-Debug-Schlüssel können zwischen Läufen variieren; Updates 
 bereits installierte Testversion sind dann nicht möglich. Vor einer Deinstallation Daten exportieren.
 Keine Schlüssel oder Passwörter im Repository speichern.
 
-## Nächster Schritt: Firebase im eigenen Konto
+## Firebase und Veröffentlichung
 
-1. Firebase-Projekt anlegen und Hosting aktivieren. Eine eigene Domain ist nicht nötig.
-2. Email/Password Authentication aktivieren; Firestore mit restriktiven Regeln einrichten.
-3. FlutterFire konfigurieren und einen Cloud-Store neben dem lokalen Prototyp implementieren.
-4. Daten unter `users/{uid}/trips/{tripId}` speichern. Nur der angemeldete Besitzer darf zugreifen.
-5. Zugriffe mit zwei Benutzerkonten und direkten fremden Dokumentanfragen im Emulator testen.
-6. Mit dem Firebase CLI `firebase use --add`, dann `firebase deploy --only hosting` ausführen.
+Das Projekt `taxi-logbook-d1104` und die Web-App sind eingerichtet. Details und
+noch erforderliche Android-Schritte stehen in `config/README.md`.
+`firebase.json` enthält Hosting sowie die Regeln aus `firestore.rules`.
+Zum öffentlichen Web-Hosting im eigenen Konto:
 
-`firebase.json` bereitet ausschließlich Hosting vor; es richtet weder Anmeldung noch
-Firestore ein. Noch keine Hosting-Bereitstellung und kein Firebase-Projekt sind erfolgt.
-Die Firebase-Zugangsdaten bleiben beim Kontoinhaber.
+```bash
+flutter build web --release --no-web-resources-cdn
+firebase deploy --only hosting
+```
+
+Eine Domain muss nicht gekauft werden: Firebase Hosting stellt `.web.app` bereit.
+Die persönliche Sites-Vorschau bleibt privat und ist noch kein allgemeiner Link
+für andere Fahrer. Die Web-App kann im Browser genutzt und zum Home-Bildschirm
+hinzugefügt werden; für sie müssen Benutzer keine neue APK bei Änderungen laden.
+Android-APKs sind direkt verteilbar, Updates müssen ohne eigenen Updater aber
+manuell installiert werden. Release-Updates benötigen denselben Signaturschlüssel.

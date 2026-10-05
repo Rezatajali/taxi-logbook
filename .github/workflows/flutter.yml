@@ -25,6 +25,8 @@ jobs:
         run: flutter analyze
       - name: Tests
         run: flutter test
+      - name: Firebase live prüfen (temporäre Konten)
+        run: node tool/verify-firebase.mjs
       - name: Web bauen
         run: flutter build web --release --no-web-resources-cdn
       - name: Web-Artefakt sichern

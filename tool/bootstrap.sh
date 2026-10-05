@@ -23,7 +23,10 @@ index.write_text(index.read_text().replace('<title>taxi_logbook</title>', '<titl
 web_manifest = Path('web/manifest.json')
 data = json.loads(web_manifest.read_text())
 data.update(name='Taxi Logbuch', short_name='Logbuch', description='Dein Fahrten- und Umsatzbuch',
-    background_color='#F5F6F2', theme_color='#153E35')
+    background_color='#121126', theme_color='#121126')
 web_manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+# Cloud Flutter plugins require Android API 23 or later.
+gradle = Path('android/app/build.gradle.kts')
+gradle.write_text(gradle.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 23'))
 PY
 flutter pub get

@@ -11,6 +11,14 @@ class LogbookStore extends ChangeNotifier {
   List<String> _sources = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
   bool saving = false;
 
+  bool get isCloud => false;
+  bool get loading => false;
+  bool get ready => true;
+  bool get pendingWrites => false;
+  String? get syncError => null;
+  String get storageLabel => 'Lokal';
+  Future<void> retry() async {}
+
   List<Trip> get trips => List.unmodifiable(_trips);
   List<String> get sources => List.unmodifiable(_sources);
 
@@ -67,7 +75,7 @@ class LogbookStore extends ChangeNotifier {
 
   String exportJson() => const JsonEncoder.withIndent('  ').convert({
         'version': 1,
-        'trips': _trips.map((t) => t.toJson()).toList(),
-        'sources': _sources,
+        'trips': trips.map((t) => t.toJson()).toList(),
+        'sources': sources,
       });
 }

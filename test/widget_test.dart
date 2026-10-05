@@ -27,7 +27,8 @@ void main() {
 
     await tester.tap(find.text('Schichten'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Taxi').last);
+    await tester.ensureVisible(find.byKey(ValueKey('edit-${store.trips.single.id}')));
+    await tester.tap(find.byKey(ValueKey('edit-${store.trips.single.id}')));
     await tester.pumpAndSettle();
     expect(find.text('Fahrt bearbeiten'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('amount')), '30,00');
