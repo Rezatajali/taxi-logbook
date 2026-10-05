@@ -19,7 +19,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('amount')), '22,70');
+    await tester.enterText(find.byKey(const Key('amount')), '2270');
     await tester.ensureVisible(find.text('Fahrt speichern'));
     await tester.tap(find.text('Fahrt speichern'));
     await tester.pumpAndSettle();
@@ -58,7 +58,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('amount')), '22,70');
+    await tester.enterText(find.byKey(const Key('amount')), '2270');
     await tester.tap(find.byKey(const Key('fare-type-button')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fare-type-wheel')), findsOneWidget);

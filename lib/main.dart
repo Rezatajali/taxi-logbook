@@ -14,6 +14,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'logbook.dart';
 import 'store.dart';
+import 'currency_input.dart';
 
 const ink = Color(0xFFECECF4);
 const accent = Color(0xFFF3C45D);
@@ -817,8 +818,10 @@ class _TripEditorState extends State<TripEditor> {
                 controller: amount,
                 autofocus: true,
                 enabled: !busy,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€', hintText: '22,70'),
+                keyboardType: TextInputType.number,
+                inputFormatters: const [CentsInputFormatter()],
+                decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€',
+                  hintText: '0,00', helperText: '2270 → 22,70 €'),
                 validator: (v) => parseCents(v ?? '') == null
                     ? 'Betrag größer als 0; maximal 2 Nachkommastellen.' : null,
               )),
