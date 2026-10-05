@@ -103,8 +103,10 @@ class _LoginScreenState extends State<LoginScreen> {
   void changeMode(LoginMode value) {
     if (busy) return;
     setState(() { mode = value; error = null; notice = null; });
+    final address = email.text;
     password.clear(); confirmation.clear();
     form.currentState?.reset();
+    email.text = address;
   }
   Future<void> submit() async {
     if (busy || !form.currentState!.validate()) return;
@@ -119,9 +121,11 @@ class _LoginScreenState extends State<LoginScreen> {
           await widget.auth.register(address, password.text);
         case LoginMode.reset:
           await widget.auth.resetPassword(address);
-          if (mounted) setState(() => notice = 'Falls ein Konto für diese E-Mail '
+          if (mounted) {
+            setState(() => notice = 'Falls ein Konto für diese E-Mail '
             'besteht, erhältst du einen Link zum Festlegen eines neuen Passworts. '
             'Bitte auch den Spam-Ordner prüfen.');
+          }
       }
     } catch (failure) {
       if (mounted) setState(() => error = authError(failure));
