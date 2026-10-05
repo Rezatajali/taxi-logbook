@@ -126,7 +126,8 @@ class _LogbookHomeState extends State<LogbookHome> {
             title: const Row(children: [
               Icon(Icons.local_taxi_rounded, color: ink),
               SizedBox(width: 10),
-              Text('Taxi Logbuch', style: TextStyle(fontWeight: FontWeight.w800)),
+              Expanded(child: Text('Taxi Logbuch', overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w800))),
             ]),
             actions: [
               Padding(
