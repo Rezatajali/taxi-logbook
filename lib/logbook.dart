@@ -1,11 +1,32 @@
 enum PaymentMethod {
   cash('Bar'),
   card('Karte'),
-  platform('Über Plattform');
+  platform('Über Plattform'),
+  invoice('Rechnung');
 
   const PaymentMethod(this.label);
   final String label;
 }
+
+// Quick choices combine source/payment for fast entry, while records still
+// retain the two independent fields for accurate cash and platform reports.
+class FareType {
+  const FareType(this.label, this.source, this.payment);
+  final String label;
+  final String source;
+  final PaymentMethod payment;
+  bool matches(String source, PaymentMethod payment) =>
+      this.source == source && this.payment == payment;
+}
+
+const fareTypes = [
+  FareType('Bar', 'Taxi', PaymentMethod.cash),
+  FareType('Uber', 'Uber', PaymentMethod.platform),
+  FareType('Karte', 'Taxi', PaymentMethod.card),
+  FareType('Rechnung', 'Taxi', PaymentMethod.invoice),
+  FareType('Bolt', 'Bolt', PaymentMethod.platform),
+  FareType('FREENOW', 'FREENOW', PaymentMethod.platform),
+];
 
 // Store money as whole cents. Never add currency using floating point.
 int? parseCents(String input) {

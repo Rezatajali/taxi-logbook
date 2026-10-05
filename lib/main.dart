@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart';
@@ -6,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'logbook.dart';
 import 'store.dart';
 
-const ink = Color(0xFF153E35);
+const ink = Color(0xFFECECF4);
 const accent = Color(0xFFF3C45D);
-const canvas = Color(0xFFF5F6F2);
+const canvas = Color(0xFF121126);
+const surface = Color(0xFF232238);
+const primary = Color(0xFF00C99A);
+const muted = Color(0xFFABAABE);
 final euro = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 String money(num cents) => euro.format(cents / 100);
 String km(double value) => NumberFormat('0.0', 'de_DE').format(value);
@@ -60,7 +64,7 @@ class LogbookApp extends StatelessWidget {
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         theme: ThemeData(
           useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: ink),
+          colorScheme: ColorScheme.fromSeed(seedColor: primary, brightness: Brightness.dark),
           scaffoldBackgroundColor: canvas,
           appBarTheme: const AppBarTheme(
             backgroundColor: canvas,
@@ -77,8 +81,8 @@ class LogbookApp extends StatelessWidget {
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              backgroundColor: ink,
-              foregroundColor: Colors.white,
+              backgroundColor: primary,
+              foregroundColor: canvas,
               minimumSize: const Size(0, 52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -112,7 +116,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: surface,
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (_) => TripEditor(store: widget.store, trip: trip),
     );
@@ -136,7 +140,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                   avatar: const Icon(Icons.phone_android, size: 16),
                   label: const Text('Lokal'),
                   side: BorderSide.none,
-                  backgroundColor: Colors.white,
+                  backgroundColor: surface,
                 ),
               ),
             ],
@@ -162,20 +166,22 @@ class _LogbookHomeState extends State<LogbookHome> {
               : FloatingActionButton.extended(
                   onPressed: widget.store.saving ? null : () => editTrip(),
                   backgroundColor: accent,
-                  foregroundColor: ink,
+                  foregroundColor: canvas,
                   icon: const Icon(Icons.add),
                   label: const Text('Fahrt erfassen'),
                 ),
           bottomNavigationBar: NavigationBar(
+            backgroundColor: surface,
+            indicatorColor: accent.withValues(alpha: 0.18),
             selectedIndex: tab,
             onDestinationSelected: (value) => setState(() => tab = value),
             destinations: const [
               NavigationDestination(icon: Icon(Icons.space_dashboard_outlined),
-                  selectedIcon: Icon(Icons.space_dashboard), label: 'Heute'),
-              NavigationDestination(icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long), label: 'Fahrten'),
+                  selectedIcon: Icon(Icons.space_dashboard), label: 'Home'),
+              NavigationDestination(icon: Icon(Icons.local_taxi_outlined),
+                  selectedIcon: Icon(Icons.local_taxi), label: 'Schichten'),
               NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Monat'),
-              NavigationDestination(icon: Icon(Icons.tune), label: 'Mehr'),
+              NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
             ],
           ),
         ),
@@ -187,7 +193,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           Text(text, style: const TextStyle(
               fontSize: 28, fontWeight: FontWeight.w800, color: ink)),
           const SizedBox(height: 4),
-          Text(subtitle, style: TextStyle(color: Colors.grey.shade700)),
+          Text(subtitle, style: const TextStyle(color: muted)),
         ]),
       );
 
@@ -195,7 +201,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: ink,
+          color: surface,
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -219,9 +225,9 @@ class _LogbookHomeState extends State<LogbookHome> {
         margin: const EdgeInsets.only(top: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE4E9E3)),
+          border: Border.all(color: const Color(0xFF38374E)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(heading, style: const TextStyle(
@@ -242,7 +248,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                 width: width,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: surface,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,8 +258,8 @@ class _LogbookHomeState extends State<LogbookHome> {
                   Text(value.$2, style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
                   const SizedBox(height: 4),
-                  Text(value.$1, style: TextStyle(
-                      fontSize: 12, color: Colors.grey.shade700)),
+                  Text(value.$1, style: const TextStyle(
+                      fontSize: 12, color: muted)),
                 ]),
               ),
           ]);
@@ -282,7 +288,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           padding: const EdgeInsets.only(top: 12),
           child: Text('€/km nur aus ${summary.tripsWithDistance} Fahrten mit '
               'Kilometerangabe. Leerfahrten sind nicht enthalten.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              style: const TextStyle(fontSize: 12, color: muted)),
         ),
       panel('Zahlungsarten', breakdown({
         for (final entry in summary.byPayment.entries)
@@ -302,7 +308,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           const SizedBox(height: 12),
           Text(heading, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text(detail, style: TextStyle(color: Colors.grey.shade700)),
+          Text(detail, style: const TextStyle(color: muted)),
         ]),
       );
 
@@ -321,7 +327,7 @@ class _LogbookHomeState extends State<LogbookHome> {
             child: LinearProgressIndicator(
               value: total == 0 ? 0 : entry.value / total,
               minHeight: 6,
-              color: ink,
+              color: primary,
               backgroundColor: canvas,
             ),
           ),
@@ -350,7 +356,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         (paymentFilter == null || t.payment == paymentFilter)).toList()
       ..sort((a, b) => b.at.compareTo(a.at));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Deine Fahrten', 'Alle Einträge lassen sich nachträglich bearbeiten.'),
+      title('Deine Schichten', 'Fahrten deiner Tagesschicht erfassen und bearbeiten.'),
       Row(children: [
         IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
@@ -542,7 +548,7 @@ class _DailyChartState extends State<DailyChart> {
                             ? 3 : (widget.values[i] / maximum * 145).clamp(3, 145).toDouble(),
                         decoration: BoxDecoration(
                           color: selected == i ? accent : widget.values[i] == 0
-                              ? const Color(0xFFE4E9E3) : ink,
+                              ? const Color(0xFF38374E) : primary,
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
@@ -579,6 +585,34 @@ class _TripEditorState extends State<TripEditor> {
   late PaymentMethod payment;
   bool busy = false;
   String? error;
+
+  FareType get selectedType => fareTypes.firstWhere(
+      (type) => type.matches(source, payment),
+      orElse: () => FareType('$source · ${payment.label}', source, payment));
+
+  Future<void> chooseType() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final current = selectedType;
+    final choices = [
+      ...fareTypes,
+      for (final name in widget.store.sources)
+        if (!fareTypes.any((type) => type.source == name))
+          FareType(name, name, PaymentMethod.platform),
+    ];
+    if (!choices.any((type) => type.matches(source, payment))) {
+      choices.add(current);
+    }
+    final index = choices.indexWhere((type) => type.matches(source, payment));
+    final picked = await showModalBottomSheet<FareType>(
+      context: context,
+      useSafeArea: true,
+      backgroundColor: surface,
+      builder: (_) => FareTypePicker(choices: choices, initialIndex: index < 0 ? 0 : index),
+    );
+    if (picked != null && mounted) {
+      setState(() { source = picked.source; payment = picked.payment; });
+    }
+  }
 
   @override
   void initState() {
@@ -665,32 +699,57 @@ class _TripEditorState extends State<TripEditor> {
                   icon: const Icon(Icons.close)),
             ]),
             const SizedBox(height: 20),
-            TextFormField(
-              key: const Key('amount'),
-              controller: amount,
-              autofocus: true,
-              enabled: !busy,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Fahrpreis', suffixText: '€', hintText: '22,70'),
-              validator: (v) => parseCents(v ?? '') == null
-                  ? 'Betrag größer als 0, mit höchstens 2 Nachkommastellen.' : null,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: source,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Fahrtquelle'),
-              items: widget.store.sources.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: busy ? null : (value) => setState(() => source = value!),
-            ),
-            const SizedBox(height: 20),
-            const Text('Zahlungsart', style: TextStyle(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final method in PaymentMethod.values)
-                ChoiceChip(label: Text(method.label), selected: payment == method,
-                    onSelected: busy ? null : (_) => setState(() => payment = method)),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: TextFormField(
+                key: const Key('amount'),
+                controller: amount,
+                autofocus: true,
+                enabled: !busy,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€', hintText: '22,70'),
+                validator: (v) => parseCents(v ?? '') == null
+                    ? 'Betrag größer als 0; maximal 2 Nachkommastellen.' : null,
+              )),
+              const SizedBox(width: 12),
+              SizedBox(width: 130, child: InkWell(
+                key: const Key('fare-type-button'),
+                onTap: busy ? null : chooseType,
+                borderRadius: BorderRadius.circular(14),
+                child: InputDecorator(
+                  decoration: const InputDecoration(labelText: 'Art'),
+                  child: Row(children: [
+                    Expanded(child: Text(selectedType.label, overflow: TextOverflow.ellipsis)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.unfold_more_rounded, size: 20, color: primary),
+                  ]),
+                ),
+              )),
             ]),
+            const SizedBox(height: 12),
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                title: const Text('Quelle / Zahlung anpassen', style: TextStyle(fontSize: 13)),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 12),
+                children: [
+                  DropdownButtonFormField<String>(
+                    key: ValueKey(source),
+                    initialValue: source,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Fahrtquelle'),
+                    items: widget.store.sources.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: busy ? null : (value) => setState(() => source = value!),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final method in PaymentMethod.values)
+                      ChoiceChip(label: Text(method.label), selected: payment == method,
+                          onSelected: busy ? null : (_) => setState(() => payment = method)),
+                  ]),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               icon: const Icon(Icons.calendar_today_outlined),
@@ -738,6 +797,61 @@ class _TripEditorState extends State<TripEditor> {
           ],
         )),
       ),
+    ),
+  );
+}
+
+class FareTypePicker extends StatefulWidget {
+  const FareTypePicker({super.key, required this.choices, required this.initialIndex});
+  final List<FareType> choices;
+  final int initialIndex;
+  @override
+  State<FareTypePicker> createState() => _FareTypePickerState();
+}
+
+class _FareTypePickerState extends State<FareTypePicker> {
+  late int index;
+  late final FixedExtentScrollController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    index = widget.initialIndex;
+    controller = FixedExtentScrollController(initialItem: index);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          const Expanded(child: Text('Art auswählen', textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.w700))),
+          TextButton(key: const Key('apply-fare-type'),
+              onPressed: () => Navigator.pop(context, widget.choices[index]),
+              child: const Text('Fertig')),
+        ]),
+        const SizedBox(height: 8),
+        SizedBox(height: 210, child: CupertinoPicker(
+          key: const Key('fare-type-wheel'),
+          scrollController: controller,
+          itemExtent: 48,
+          useMagnifier: true,
+          magnification: 1.1,
+          onSelectedItemChanged: (value) => index = value,
+          children: widget.choices.map((type) => Center(child: Text(type.label,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: ink, fontSize: 21)))).toList(),
+        )),
+      ]),
     ),
   );
 }

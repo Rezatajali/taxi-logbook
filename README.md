@@ -5,8 +5,13 @@ Eine Codebasis für Android und Web; iPhone-Nutzer verwenden später die gehoste
 
 ## Funktionen der ersten Version
 
+Dunkles Dashboard mit grünen Diagrammen. In **Schichten → Fahrt erfassen**
+steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Karte, Rechnung,
+Bolt und FREENOW. Über „Quelle / Zahlung anpassen“ sind Kombinationen wie Uber + Bar möglich.
+Tagesschichten gruppieren die Fahrten nach Datum; Start-/Endzeiten folgen später.
+
 - Fahrpreis in Euro, auf ganze Cent genau gespeichert; Eingabe mit Komma oder Punkt.
-- Fahrtquelle (Taxi, Uber, Bolt, FREENOW oder eigene Quelle) **getrennt** von Zahlungsart (Bar, Karte, Über Plattform).
+- Fahrtquelle (Taxi, Uber, Bolt, FREENOW oder eigene Quelle) **getrennt** von Zahlungsart (Bar, Karte, Rechnung, Über Plattform).
 - Datum/Uhrzeit, optionale Fahrtstrecke und Notiz.
 - Fahrten bearbeiten und nach Bestätigung löschen; Tagesfilter, Quellenfilter und Zahlungsfilter.
 - Tagesumsatz, Barumsatz, Monatsumsatz, Durchschnitt je Tag mit Fahrten und anklickbares Tagesdiagramm.

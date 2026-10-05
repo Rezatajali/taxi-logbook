@@ -11,6 +11,18 @@ Trip trip(String id, int cents, DateTime at,
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('Quick entry preserves separate source/payment data including invoices', () {
+    final uber = fareTypes.singleWhere((type) => type.label == 'Uber');
+    expect(uber.source, 'Uber');
+    expect(uber.payment, PaymentMethod.platform);
+    final invoice = fareTypes.singleWhere((type) => type.label == 'Rechnung');
+    final saved = trip('invoice', 2270, DateTime(2026, 10, 5),
+        source: invoice.source, payment: invoice.payment);
+    expect(Trip.fromJson(saved.toJson()).payment, PaymentMethod.invoice);
+    expect(TripSummary([saved]).cashCents, 0);
+    expect(TripSummary([saved]).byPayment[PaymentMethod.invoice], 2270);
+  });
+
   test('German amounts use exact cents and reject ambiguous values', () {
     expect(parseCents('22,70'), 2270);
     expect(parseCents('22.7'), 2270);
