@@ -77,7 +77,7 @@ Zum öffentlichen Web-Hosting im eigenen Konto:
 
 ```bash
 flutter build web --release --no-web-resources-cdn
-firebase deploy --only hosting
+bash tool/deploy-hosting.sh
 ```
 
 Eine Domain muss nicht gekauft werden: Firebase Hosting stellt `.web.app` bereit.
@@ -86,3 +86,8 @@ für andere Fahrer. Die Web-App kann im Browser genutzt und zum Home-Bildschirm
 hinzugefügt werden; für sie müssen Benutzer keine neue APK bei Änderungen laden.
 Android-APKs sind direkt verteilbar, Updates müssen ohne eigenen Updater aber
 manuell installiert werden. Release-Updates benötigen denselben Signaturschlüssel.
+
+Das fertige Hosting-Paket enthält build/web, firebase.json, .firebaserc und
+`tool/deploy-hosting.sh`. Mit Node.js LTS kann es ohne lokale Flutter-Installation
+veröffentlicht werden. Die Anmeldung erfolgt im eigenen Google-Konto. Das Skript
+veröffentlicht ausschließlich Hosting und ändert keine Firestore-Regeln.
