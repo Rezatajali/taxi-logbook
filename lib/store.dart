@@ -9,6 +9,9 @@ class LogbookStore extends ChangeNotifier {
   static const storageKey = 'taxi_logbook_v1';
   List<Trip> _trips = [];
   List<String> _sources = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
+  String _driverNumber = '';
+  String get driverNumber => _driverNumber;
+  String get driverLabel => driverNumber.isEmpty ? 'Fahrer' : 'Fahrer $driverNumber';
   bool saving = false;
 
   bool get isCloud => false;
@@ -36,16 +39,19 @@ class LogbookStore extends ChangeNotifier {
     }
     _trips = trips;
     _sources = sources;
+    _driverNumber = json['driverNumber'] as String? ?? '';
     notifyListeners();
   }
 
-  Future<void> _persist(List<Trip> trips, List<String> sources) async {
+  Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber}) async {
+    final nextNumber = driverNumber ?? _driverNumber;
     if (saving) throw StateError('Speicherung läuft bereits.');
     saving = true;
     notifyListeners();
     try {
       final success = await preferences.setString(storageKey, jsonEncode({
         'version': 1,
+        'driverNumber': nextNumber,
         'trips': trips.map((t) => t.toJson()).toList(),
         'sources': sources,
       }));
@@ -53,6 +59,7 @@ class LogbookStore extends ChangeNotifier {
       // Update the visible state only after persistence succeeds.
       _trips = trips;
       _sources = sources;
+      _driverNumber = nextNumber;
     } finally {
       saving = false;
       notifyListeners();
@@ -73,8 +80,17 @@ class LogbookStore extends ChangeNotifier {
     await _persist([..._trips], [..._sources, name]);
   }
 
+  Future<void> saveDriverNumber(String input) async {
+    final number = input.trim();
+    if (number.isNotEmpty && !RegExp(r'^\d{1,10}$').hasMatch(number)) {
+      throw ArgumentError('Bitte 1 bis 10 Ziffern eingeben.');
+    }
+    await _persist([..._trips], [..._sources], driverNumber: number);
+  }
+
   String exportJson() => const JsonEncoder.withIndent('  ').convert({
         'version': 1,
+        'driverNumber': driverNumber,
         'trips': trips.map((t) => t.toJson()).toList(),
         'sources': sources,
       });

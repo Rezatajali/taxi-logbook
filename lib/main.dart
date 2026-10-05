@@ -141,7 +141,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       useSafeArea: true,
       backgroundColor: surface,
       constraints: const BoxConstraints(maxWidth: 640),
-      builder: (_) => TripEditor(store: widget.store, trip: trip),
+      builder: (_) => TripEditor(store: widget.store, trip: trip, initialDate: tab == 1 ? day : null),
     );
   }
 
@@ -150,11 +150,11 @@ class _LogbookHomeState extends State<LogbookHome> {
         listenable: widget.store,
         builder: (context, _) => Scaffold(
           appBar: AppBar(
-            title: const Row(children: [
-              Icon(Icons.local_taxi_rounded, color: ink),
-              SizedBox(width: 10),
-              Expanded(child: Text('Taxi Logbuch', overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontWeight: FontWeight.w800))),
+            title: Row(children: [
+              const Icon(Icons.local_taxi_rounded, color: ink),
+              const SizedBox(width: 10),
+              Expanded(child: Text(widget.store.driverNumber.isEmpty ? 'Taxi Logbuch' : widget.store.driverLabel, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800))),
             ]),
             actions: [
               Padding(
@@ -196,7 +196,7 @@ class _LogbookHomeState extends State<LogbookHome> {
               ),
             ),
           ),
-          floatingActionButton: tab == 3
+          floatingActionButton: tab != 1
               ? null
               : FloatingActionButton.extended(
                   onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
@@ -331,7 +331,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       }, summary.totalCents)),
       panel('Letzte Fahrten', trips.isEmpty
           ? emptyState('Noch keine Fahrt heute.',
-              'Tippe auf „Fahrt erfassen“, um deinen Umsatz festzuhalten.')
+              'Öffne „Schichten“ und tippe auf „Fahrt erfassen“.')
           : Column(children: trips.take(5).map(tripTile).toList())),
     ]);
   }
@@ -388,9 +388,9 @@ class _LogbookHomeState extends State<LogbookHome> {
     child: Column(children: [
       ListTile(
         contentPadding: EdgeInsets.zero,
-        title: Text(trip.source, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(widget.store.driverLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · '
-          '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}'),
+          '${trip.source} · ${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}'),
         trailing: Text(money(trip.cents),
           style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
         onTap: widget.store.ready && !widget.store.saving ? () => editTrip(trip) : null,
@@ -518,8 +518,47 @@ class _LogbookHomeState extends State<LogbookHome> {
     }
   }
 
+  Future<void> changeDriverNumber() async {
+    final controller = TextEditingController(text: widget.store.driverNumber);
+    final formKey = GlobalKey<FormState>();
+    final number = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
+      title: const Text('Deine Fahrernummer'),
+      content: Form(key: formKey, child: TextFormField(
+        key: const Key('driver-number-input'), controller: controller,
+        autofocus: true, keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+        decoration: const InputDecoration(labelText: 'Fahrernummer', hintText: 'z. B. 267'),
+        validator: (value) => (value ?? '').trim().isEmpty || RegExp(r'^\d{1,10}$').hasMatch(value!.trim())
+          ? null : 'Bitte nur Ziffern eingeben.',
+      )),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Abbrechen')),
+        FilledButton(onPressed: () {
+          if (formKey.currentState!.validate()) Navigator.pop(dialogContext, controller.text.trim());
+        }, child: const Text('Speichern')),
+      ],
+    ));
+    // Keep the controller alive while the closing dialog animates.
+    if (number == null || !mounted) return;
+    try {
+      await widget.store.saveDriverNumber(number);
+      if (mounted) message('Fahrernummer gespeichert.');
+    } catch (_) {
+      if (mounted) message('Fahrernummer konnte nicht gespeichert werden.');
+    }
+  }
+
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        title('Dein Logbuch', 'Quellen, Konto und Daten verwalten.'),
+        title('Dein Logbuch', 'Deine Fahrernummer und dein Konto.'),
+        panel('Deine Fahrernummer', Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.store.driverNumber.isEmpty ? 'Noch keine Nummer eingetragen' : widget.store.driverLabel,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(key: const Key('change-driver-number'),
+              onPressed: widget.store.saving || !widget.store.ready ? null : changeDriverNumber,
+              icon: const Icon(Icons.badge_outlined), label: const Text('Nummer ändern')),
+          ])),
         if (widget.onExit != null) panel(widget.store.isCloud ? 'Dein Konto' : 'Lokale Vorschau',
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (widget.accountEmail != null) Text(widget.accountEmail!),
@@ -636,7 +675,8 @@ class _DailyChartState extends State<DailyChart> {
 }
 
 class TripEditor extends StatefulWidget {
-  const TripEditor({super.key, required this.store, this.trip});
+  const TripEditor({super.key, required this.store, this.trip, this.initialDate});
+  final DateTime? initialDate;
   final LogbookStore store;
   final Trip? trip;
   @override
@@ -693,7 +733,9 @@ class _TripEditorState extends State<TripEditor> {
     distance = TextEditingController(text: trip?.kilometers == null ? ''
         : trip!.kilometers.toString().replaceAll('.', ','));
     note = TextEditingController(text: trip?.note ?? '');
-    at = trip?.at ?? DateTime.now();
+    final now = DateTime.now();
+    final date = widget.initialDate ?? now;
+    at = trip?.at ?? DateTime(date.year, date.month, date.day, now.hour, now.minute);
     source = trip?.source ?? widget.store.sources.first;
     payment = trip?.payment ?? PaymentMethod.cash;
   }
@@ -796,6 +838,33 @@ class _TripEditorState extends State<TripEditor> {
               )),
             ]),
             const SizedBox(height: 16),
+            Wrap(spacing: 12, runSpacing: 8, children: [
+              OutlinedButton.icon(key: const Key('trip-date'),
+                icon: const Icon(Icons.calendar_today_outlined),
+                label: Text(DateFormat('dd.MM.yyyy').format(at)),
+                onPressed: busy ? null : () async {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  final date = await showDatePicker(context: context,
+                    initialDate: at, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                  if (date != null && mounted) {
+                    setState(() => at = DateTime(date.year, date.month, date.day, at.hour, at.minute));
+                  }
+                },
+              ),
+              OutlinedButton.icon(key: const Key('trip-time'),
+                icon: const Icon(Icons.schedule_outlined),
+                label: Text(DateFormat('HH:mm').format(at)),
+                onPressed: busy ? null : () async {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  final time = await showTimePicker(context: context,
+                    initialTime: TimeOfDay.fromDateTime(at));
+                  if (time != null && mounted) {
+                    setState(() => at = DateTime(at.year, at.month, at.day, time.hour, time.minute));
+                  }
+                },
+              ),
+            ]),
+            const SizedBox(height: 12),
             SizedBox(width: double.infinity, child: FilledButton.icon(
               onPressed: busy ? null : save,
               icon: busy
@@ -814,7 +883,7 @@ class _TripEditorState extends State<TripEditor> {
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
-                title: const Text('Quelle / Zahlung anpassen', style: TextStyle(fontSize: 13)),
+                title: const Text('Weitere Angaben (optional)', style: TextStyle(fontSize: 16)),
                 tilePadding: EdgeInsets.zero,
                 childrenPadding: const EdgeInsets.only(bottom: 12),
                 children: [
@@ -832,25 +901,6 @@ class _TripEditorState extends State<TripEditor> {
                       ChoiceChip(label: Text(method.label), selected: payment == method,
                           onSelected: busy ? null : (_) => setState(() => payment = method)),
                   ]),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.calendar_today_outlined),
-              label: Text(DateFormat('dd.MM.yyyy · HH:mm').format(at)),
-              onPressed: busy ? null : () async {
-                final date = await showDatePicker(context: context,
-                    initialDate: at, firstDate: DateTime(2020), lastDate: DateTime(2100));
-                if (date == null || !context.mounted) {
-                  return;
-                }
-                final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(at));
-                if (time != null && mounted) {
-                  setState(() => at = DateTime(date.year, date.month, date.day, time.hour, time.minute));
-                }
-              },
-            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: distance,
@@ -863,6 +913,10 @@ class _TripEditorState extends State<TripEditor> {
             const SizedBox(height: 16),
             TextFormField(controller: note, enabled: !busy, maxLength: 250,
                 decoration: const InputDecoration(labelText: 'Notiz (optional)')),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             if (error != null) Padding(padding: const EdgeInsets.only(bottom: 12),
                 child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
             const SizedBox(height: 16),

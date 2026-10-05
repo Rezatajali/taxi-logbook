@@ -11,6 +11,12 @@ class FakeBackend implements UserLogbookBackend {
   final sourceRecords = StreamController<List<String>>.broadcast(sync: true);
   final trips = <String, Trip>{};
   final sources = <String>[];
+  final driverRecords = StreamController<String>.broadcast(sync: true);
+  String driverNumber = '';
+  @override
+  Stream<String> watchDriverNumber() => driverRecords.stream;
+  @override
+  Future<void> saveDriverNumber(String number) async { driverNumber = number; driverRecords.add(number); }
   bool fail = false;
   void emit() => records.add(CloudRecords(trips.values.toList()));
   @override
@@ -26,7 +32,7 @@ class FakeBackend implements UserLogbookBackend {
   Future<void> deleteTrip(String id) async { trips.remove(id); emit(); }
   @override
   Future<void> addSource(String name) async { sources.add(name); sourceRecords.add(sources); }
-  Future<void> close() async { await records.close(); await sourceRecords.close(); }
+  Future<void> close() async { await records.close(); await sourceRecords.close(); await driverRecords.close(); }
 }
 Trip fare(String id, int cents) => Trip(id: id, at: DateTime(2026, 10, 5),
   cents: cents, source: 'Taxi', payment: PaymentMethod.cash);
@@ -43,6 +49,9 @@ void main() {
     final accountB = CloudLogbookStore(prefs, backendB)..load();
     backendA.emit(); backendB.emit();
     expect(accountA.trips, isEmpty);
+    await accountA.saveDriverNumber('267');
+    expect(accountA.driverNumber, '267');
+    expect(accountB.driverNumber, isEmpty);
     await accountA.saveTrip(fare('one', 2270));
     await accountA.saveTrip(fare('two', 3500));
     await accountA.saveTrip(fare('one', 3000));

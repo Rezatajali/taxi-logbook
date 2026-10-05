@@ -13,6 +13,8 @@ class CloudRecords {
 abstract class UserLogbookBackend {
   Stream<CloudRecords> watchTrips();
   Stream<List<String>> watchSources();
+  Stream<String> watchDriverNumber();
+  Future<void> saveDriverNumber(String number);
   Future<void> saveTrip(Trip trip);
   Future<void> deleteTrip(String id);
   Future<void> addSource(String source);
@@ -46,6 +48,12 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
         return sources == null ? <String>[] : List<String>.from(sources as List);
       });
   @override
+  Stream<String> watchDriverNumber() => settings.snapshots().map(
+      (snapshot) => snapshot.data()?['driverNumber'] as String? ?? '');
+  @override
+  Future<void> saveDriverNumber(String number) => settings.set(
+      {'driverNumber': number}, SetOptions(merge: true));
+  @override
   Future<void> saveTrip(Trip trip) => trips.doc(trip.id).set(trip.toJson());
   @override
   Future<void> deleteTrip(String id) => trips.doc(id).delete();
@@ -62,6 +70,8 @@ class CloudLogbookStore extends LogbookStore {
   List<String> _cloudSources = [...defaults];
   StreamSubscription<CloudRecords>? _tripSubscription;
   StreamSubscription<List<String>>? _sourceSubscription;
+  String _cloudDriverNumber = '';
+  StreamSubscription<String>? _driverSubscription;
   bool _loading = true;
   bool _ready = false;
   bool _pending = false;
@@ -71,6 +81,8 @@ class CloudLogbookStore extends LogbookStore {
   String? _error;
   int _generation = 0;
 
+  @override
+  String get driverNumber => _cloudDriverNumber;
   @override
   List<Trip> get trips => List.unmodifiable(_cloudTrips);
   @override
@@ -98,6 +110,7 @@ class CloudLogbookStore extends LogbookStore {
     final generation = ++_generation;
     _tripSubscription?.cancel();
     _sourceSubscription?.cancel();
+    _driverSubscription?.cancel();
     _loading = true;
     _error = null;
     _notify();
@@ -120,6 +133,11 @@ class CloudLogbookStore extends LogbookStore {
       _cached = records.fromCache;
       _ready = true;
       _loading = false;
+      _notify();
+    }, onError: failed);
+    _driverSubscription = backend.watchDriverNumber().listen((number) {
+      if (!active()) return;
+      _cloudDriverNumber = number;
       _notify();
     }, onError: failed);
     _sourceSubscription = backend.watchSources().listen((values) {
@@ -172,11 +190,20 @@ class CloudLogbookStore extends LogbookStore {
     await _write(() => backend.addSource(name));
   }
   @override
+  Future<void> saveDriverNumber(String input) async {
+    final number = input.trim();
+    if (number.isNotEmpty && !RegExp(r'^\d{1,10}$').hasMatch(number)) {
+      throw ArgumentError('Bitte 1 bis 10 Ziffern eingeben.');
+    }
+    await _write(() => backend.saveDriverNumber(number));
+  }
+  @override
   void dispose() {
     _disposed = true;
     _generation++;
     _tripSubscription?.cancel();
     _sourceSubscription?.cancel();
+    _driverSubscription?.cancel();
     super.dispose();
   }
 }

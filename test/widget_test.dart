@@ -15,6 +15,8 @@ void main() {
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Schichten'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('amount')), '22,70');
@@ -52,6 +54,8 @@ void main() {
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Schichten'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('amount')), '22,70');
@@ -74,4 +78,55 @@ void main() {
     expect(store.trips.single.cents, 2270);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Entry stays in Schichten and driver number persists in profile', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final store = LogbookStore(prefs)..load();
+    await tester.pumpWidget(LogbookApp(store: store));
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrt erfassen'), findsNothing);
+    await tester.tap(find.text('Schichten'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrt erfassen'), findsOneWidget);
+    await tester.tap(find.text('Monat'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrt erfassen'), findsNothing);
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fahrt erfassen'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('change-driver-number')));
+    await tester.tap(find.byKey(const Key('change-driver-number')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('driver-number-input')), '267');
+    await tester.tap(find.text('Speichern'));
+    await tester.pumpAndSettle();
+    expect(store.driverNumber, '267');
+    expect((LogbookStore(prefs)..load()).driverNumber, '267');
+    expect(find.text('Fahrer 267'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Changing the date preserves time and only the time button opens its picker', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LogbookStore(await SharedPreferences.getInstance())..load();
+    final trip = Trip(id: 'date-test', at: DateTime(2026, 10, 5, 14, 37),
+      cents: 2270, source: 'Taxi', payment: PaymentMethod.cash);
+    await tester.pumpWidget(LogbookApp(store: store,
+      home: Scaffold(body: TripEditor(store: store, trip: trip))));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('trip-date')));
+    await tester.tap(find.byKey(const Key('trip-date')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('6'));
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimePickerDialog), findsNothing);
+    expect(find.text('06.10.2026'), findsOneWidget);
+    expect(find.text('14:37'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('trip-time')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimePickerDialog), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
 }
