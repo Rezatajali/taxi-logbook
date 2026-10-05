@@ -2,7 +2,6 @@ name: Flutter prüfen und bauen
 on:
   push:
     branches: [main, codex/initial-logbook]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -27,7 +26,7 @@ jobs:
       - name: Tests
         run: flutter test
       - name: Web bauen
-        run: flutter build web --release
+        run: flutter build web --release --no-web-resources-cdn
       - name: Web-Artefakt sichern
         uses: actions/upload-artifact@v4
         with:

@@ -632,7 +632,9 @@ class _TripEditorState extends State<TripEditor> {
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
       ],
     ));
-    if (confirmed != true || !mounted) return;
+    if (confirmed != true || !mounted) {
+      return;
+    }
     setState(() => busy = true);
     try {
       await widget.store.deleteTrip(widget.trip!.id);
@@ -693,7 +695,9 @@ class _TripEditorState extends State<TripEditor> {
               onPressed: busy ? null : () async {
                 final date = await showDatePicker(context: context,
                     initialDate: at, firstDate: DateTime(2020), lastDate: DateTime(2100));
-                if (date == null || !context.mounted) return;
+                if (date == null || !context.mounted) {
+                  return;
+                }
                 final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(at));
                 if (time != null && mounted) setState(() =>
                     at = DateTime(date.year, date.month, date.day, time.hour, time.minute));
