@@ -3,12 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'logbook.dart';
 import 'pauses.dart';
+import 'shifts.dart';
 
 class LogbookStore extends ChangeNotifier {
   LogbookStore(this.preferences);
   final SharedPreferences preferences;
   static const storageKey = 'taxi_logbook_v1';
   List<Trip> _trips = [];
+  List<ShiftRecord> _shifts = [];
+  List<ShiftRecord> get shifts => List.unmodifiable(_shifts);
+  bool get shiftsReady => true;
   List<PauseRecord> _pauses = [];
   List<PauseRecord> get pauses => List.unmodifiable(_pauses);
   bool get pausesReady => true;
@@ -42,21 +46,24 @@ class LogbookStore extends ChangeNotifier {
       throw const FormatException('Ungültige Quellen.');
     }
     _pauses = (json['pauses'] as List? ?? []).map((p) => PauseRecord.fromJson(Map<String, dynamic>.from(p as Map))).toList();
+    _shifts = (json['shifts'] as List? ?? []).map((v) => ShiftRecord.fromJson(Map<String, dynamic>.from(v as Map))).toList();
     _trips = trips;
     _sources = sources;
     _driverNumber = json['driverNumber'] as String? ?? '';
     notifyListeners();
   }
 
-  Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber, List<PauseRecord>? pauses}) async {
+  Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber, List<PauseRecord>? pauses, List<ShiftRecord>? shifts}) async {
     final nextNumber = driverNumber ?? _driverNumber;
     final nextPauses = pauses ?? _pauses;
+    final nextShifts = shifts ?? _shifts;
     if (saving) throw StateError('Speicherung läuft bereits.');
     saving = true;
     notifyListeners();
     try {
       final success = await preferences.setString(storageKey, jsonEncode({
-        'version': 2,
+        'version': 3,
+        'shifts': nextShifts.map((s) => s.toJson()).toList(),
         'pauses': nextPauses.map((p) => p.toJson()).toList(),
         'driverNumber': nextNumber,
         'trips': trips.map((t) => t.toJson()).toList(),
@@ -64,6 +71,7 @@ class LogbookStore extends ChangeNotifier {
       }));
       if (!success) throw StateError('Speicherung nicht möglich.');
       // Update the visible state only after persistence succeeds.
+      _shifts = nextShifts;
       _pauses = nextPauses;
       _trips = trips;
       _sources = sources;
@@ -84,6 +92,20 @@ class LogbookStore extends ChangeNotifier {
   Future<void> savePause(PauseRecord pause) => _persist([..._trips], [..._sources],
     pauses: [..._pauses.where((p) => p.id != pause.id), pause]);
 
+  Future<void> saveShift(ShiftRecord shift) {
+    validateShift(shifts, shift);
+    return _persist([..._trips], [..._sources],
+      shifts: [..._shifts.where((s) => s.id != shift.id), shift]);
+  }
+  Future<void> finishShift(ShiftRecord shift, DateTime end) {
+    final finished = shift.finish(end);
+    validateShift(shifts, finished);
+    return _persist([..._trips], [..._sources],
+      shifts: [..._shifts.where((s) => s.id != shift.id), finished],
+      pauses: _pauses.map((p) => p.running && p.start.isBefore(end)
+        ? p.finish(end) : p).toList());
+  }
+
   Future<void> addSource(String input) async {
     final name = input.trim();
     if (name.isEmpty || name.length > 40) {
@@ -102,7 +124,8 @@ class LogbookStore extends ChangeNotifier {
   }
 
   String exportJson() => const JsonEncoder.withIndent('  ').convert({
-        'version': 2,
+        'version': 3,
+        'shifts': shifts.map((s) => s.toJson()).toList(),
         'pauses': pauses.map((p) => p.toJson()).toList(),
         'driverNumber': driverNumber,
         'trips': trips.map((t) => t.toJson()).toList(),

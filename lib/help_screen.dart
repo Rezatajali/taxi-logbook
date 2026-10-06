@@ -11,8 +11,8 @@ const _steps = [
   _GuideStep('Anmelden oder registrieren',
     'Beim ersten Mal „Registrieren“ wählen. E-Mail, Passwort und Passwort-Wiederholung eingeben. Danach mit E-Mail und Passwort anmelden.\n\nPasswort vergessen? Einen neuen Link anfordern und den neuesten Link in deinem E-Mail-Postfach öffnen.', Icons.login),
   _GuideStep('Home: Dein Tag auf einen Blick',
-    'Hier siehst du den heutigen Umsatz, die Bar-Einnahmen und deine Fahrten.\n\nZum Erfassen einer neuen Fahrt unten auf „Schichten“ tippen.', Icons.space_dashboard_outlined),
-  _GuideStep('Schichten: Den Tag auswählen',
+    'Hier siehst du den heutigen Umsatz, die Bar-Einnahmen und deine Fahrten.\n\nZum Erfassen einer neuen Fahrt unten auf „Fahrten“ tippen.', Icons.space_dashboard_outlined),
+  _GuideStep('Fahrten: Den Tag auswählen',
     'Mit den Pfeilen den Tag wechseln oder auf das große Datum tippen.\n\n„Fahrt erfassen“ gibt es nur auf dieser Seite. Eine neue Fahrt wird dem ausgewählten Tag zugeordnet.', Icons.calendar_month_outlined),
   _GuideStep('Eine Fahrt erfassen',
     'Nur Ziffern tippen: 2270 wird zu 22,70 €. Für 22 Euro 2200 eingeben.\n\nNeben dem Betrag die Art wählen: Bar, Uber, Karte, Rechnung, Bolt oder FREENOW. Datum und Uhrzeit lassen sich getrennt ändern. Zum Schluss „Fahrt speichern“ tippen.', Icons.add_circle_outline),
@@ -22,8 +22,8 @@ const _steps = [
     'Mit den Pfeilen den Monat auswählen. Hier findest du den Gesamtumsatz, Bar-Einnahmen und den Durchschnitt pro Tag mit Fahrten.\n\nIm Diagramm auf einen Tag tippen, um seinen Umsatz zu sehen. €/km berücksichtigt nur Fahrten mit eingetragener Strecke.', Icons.bar_chart),
   _GuideStep('Profil: Deine Fahrernummer',
     'Unter „Nummer ändern“ deine eigene Nummer eintragen, zum Beispiel 267. Danach steht „Fahrer 267“ oben und bei deinen Fahrten.\n\nAngemeldete Fahrer speichern ihre Daten im eigenen Cloud-Konto. Die lokale Vorschau ist davon getrennt. Im Profil findest du auch Export und Abmelden.', Icons.badge_outlined),
-  _GuideStep('Pausen: Timer oder manuell',
-    'Unten auf „Pausen“ tippen. „Pause starten“ beginnt den Timer; „Pause beenden“ speichert das Ende. Der Timer bleibt auch beim Schließen der App erhalten.\n\nMit „Pause manuell eintragen“ Beginn und Ende nachtragen. Über das Datum frühere Tage ansehen. GPS-Erkennung ist noch nicht aktiv.', Icons.pause_circle_outline),
+  _GuideStep('Schichten und Pausen',
+    'Unten auf „Schichten“ tippen. Mit „Schicht anfangen“ und „Schicht beenden“ die Arbeitszeiten erfassen oder manuell nachtragen. Im Monatsbericht stehen Arbeitstage und Stunden. „Pause starten“ beginnt den Timer; „Pause beenden“ speichert das Ende. Der Timer bleibt auch beim Schließen der App erhalten.\n\nMit „Pause manuell eintragen“ Beginn und Ende nachtragen. Über das Datum frühere Tage ansehen. GPS-Erkennung ist noch nicht aktiv.', Icons.pause_circle_outline),
   _GuideStep('Ein Symbol auf dem Handy',
     'iPhone: Den Link in Safari öffnen → Teilen → Zum Home-Bildschirm.\n\nAndroid: Den Link in Chrome öffnen → Dreipunkt-Menü → Installieren oder Zum Startbildschirm hinzufügen.\n\nDanach über das Symbol starten. Für diese Web-Version brauchst du keine APK und keinen App Store.', Icons.add_to_home_screen),
 ];
@@ -79,7 +79,7 @@ class _HelpScreenState extends State<HelpScreen> {
         const SizedBox(height: 8),
         const Text('120,00 €', style: TextStyle(fontSize: 36, fontWeight: FontWeight.w800, color: gold)),
         previewLine('Bar', '70,00 €'), previewLine('Fahrten', '5'),
-        previewButton('Unten: Schichten', icon: Icons.local_taxi_outlined),
+        previewButton('Unten: Fahrten', icon: Icons.local_taxi_outlined),
       ],
       2 => <Widget>[
         datePreview(), const SizedBox(height: 16),
@@ -123,6 +123,7 @@ class _HelpScreenState extends State<HelpScreen> {
         previewButton('Abmelden', icon: Icons.logout),
       ],
       7 => <Widget>[
+        previewButton('Schicht anfangen / beenden', icon: Icons.schedule),
         previewLine('Pause läuft', '00:20:00'),
         previewButton('Pause starten', icon: Icons.pause_circle_outline),
         previewButton('Pause beenden', icon: Icons.stop_circle_outlined),

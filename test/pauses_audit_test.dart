@@ -55,14 +55,17 @@ void main() {
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Pausen'));
+    await tester.tap(find.text('Schichten'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('start-pause')));
     await tester.tap(find.byKey(const Key('start-pause')));
     await tester.pumpAndSettle();
     expect(store.pauses.single.running, true);
+    await tester.ensureVisible(find.byKey(ValueKey('stop-pause-${store.pauses.single.id}')));
     await tester.tap(find.byKey(ValueKey('stop-pause-${store.pauses.single.id}')));
     await tester.pumpAndSettle();
     expect(store.pauses.single.running, false);
+    await tester.ensureVisible(find.byKey(const Key('manual-pause')));
     await tester.tap(find.byKey(const Key('manual-pause')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-manual-pause')));
@@ -83,7 +86,7 @@ void main() {
       source: 'Taxi', payment: PaymentMethod.cash));
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Schichten'));
+    await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     expect(find.text('Bearbeitet'), findsOneWidget);
     await store.deleteTrip(original.id);

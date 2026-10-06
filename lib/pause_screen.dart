@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'pauses.dart';
 import 'store.dart';
+import 'shift_panel.dart';
 
 String pauseTime(Duration duration) {
   final seconds = duration.inSeconds < 0 ? 0 : duration.inSeconds;
@@ -26,7 +27,7 @@ class _PausesPanelState extends State<PausesPanel> {
   void initState() {
     super.initState();
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && widget.store.pauses.any((p) => p.running)) setState(() {});
+      if (mounted && (widget.store.pauses.any((p) => p.running) || widget.store.shifts.any((s) => s.running))) setState(() {});
     });
   }
   @override
@@ -58,8 +59,23 @@ class _PausesPanelState extends State<PausesPanel> {
     final entries = widget.store.pauses.where((p) => p.start.isBefore(until) &&
       (p.end ?? now).isAfter(from)).toList()..sort((a, b) => b.start.compareTo(a.start));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Deine Pausen', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+      const Text('Schichten & Pausen', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
+      Row(children: [
+        IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
+          onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
+        Expanded(child: TextButton(onPressed: () async {
+          final picked = await showDatePicker(context: context, initialDate: day,
+            firstDate: DateTime(2020), lastDate: DateTime(2100));
+          if (picked != null && mounted) setState(() => day = picked);
+        }, child: Text(DateFormat('dd.MM.yyyy').format(day),
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)))),
+        IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
+          onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
+      ]),
+      ShiftPanel(store: widget.store, day: day),
+      const Divider(height: 36),
+      const Text('Deine Pausen', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
       if (!widget.store.pausesReady) const Text('Pausen werden geladen …'),
       if (running.isEmpty) SizedBox(width: double.infinity, child: FilledButton.icon(
         key: const Key('start-pause'), onPressed: enabled ? () => save(PauseRecord(
@@ -80,18 +96,6 @@ class _PausesPanelState extends State<PausesPanel> {
       OutlinedButton.icon(key: const Key('manual-pause'), onPressed: enabled ? () => manual() : null,
         icon: const Icon(Icons.edit_calendar_outlined), label: const Text('Pause manuell eintragen')),
       const SizedBox(height: 24),
-      Row(children: [
-        IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
-          onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
-        Expanded(child: TextButton(onPressed: () async {
-          final picked = await showDatePicker(context: context, initialDate: day,
-            firstDate: DateTime(2020), lastDate: DateTime(2100));
-          if (picked != null && mounted) setState(() => day = picked);
-        }, child: Text(DateFormat('dd.MM.yyyy').format(day),
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)))),
-        IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
-          onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
-      ]),
       Text('Pausenzeit: ${pauseTime(pauseDurationForDay(widget.store.pauses, day, now))}',
         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
       const SizedBox(height: 12),
@@ -117,8 +121,9 @@ class _PausesPanelState extends State<PausesPanel> {
 }
 
 class ManualPauseDialog extends StatefulWidget {
-  const ManualPauseDialog({super.key, required this.day, this.pause});
+  const ManualPauseDialog({super.key, required this.day, this.pause, this.title});
   final DateTime day;
+  final String? title;
   final PauseRecord? pause;
   @override
   State<ManualPauseDialog> createState() => _ManualPauseDialogState();
@@ -161,7 +166,7 @@ class _ManualPauseDialogState extends State<ManualPauseDialog> {
     ]);
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.pause == null ? 'Pause manuell eintragen' : 'Pause bearbeiten'),
+    title: Text(widget.title ?? (widget.pause == null ? 'Pause manuell eintragen' : 'Pause bearbeiten')),
     content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start, children: [
         controls('Beginn', true, start), const SizedBox(height: 12), controls('Ende', false, end),

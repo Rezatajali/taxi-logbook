@@ -15,7 +15,7 @@ void main() {
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Schichten'));
+    await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
@@ -27,7 +27,7 @@ void main() {
     expect(store.trips.single.kilometers, isNull);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Schichten'));
+    await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(ValueKey('edit-${store.trips.single.id}')));
     await tester.tap(find.byKey(ValueKey('edit-${store.trips.single.id}')));
@@ -54,7 +54,7 @@ void main() {
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Schichten'));
+    await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
@@ -85,7 +85,7 @@ void main() {
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
     expect(find.text('Fahrt erfassen'), findsNothing);
-    await tester.tap(find.text('Schichten'));
+    await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     expect(find.text('Fahrt erfassen'), findsOneWidget);
     await tester.tap(find.text('Monat'));

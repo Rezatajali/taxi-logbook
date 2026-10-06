@@ -6,11 +6,22 @@ import 'package:taxi_logbook/cloud_store.dart';
 import 'package:taxi_logbook/logbook.dart';
 import 'package:taxi_logbook/store.dart';
 import 'package:taxi_logbook/pauses.dart';
+import 'package:taxi_logbook/shifts.dart';
 
 class FakeBackend implements UserLogbookBackend {
   final records = StreamController<CloudRecords>.broadcast(sync: true);
   final sourceRecords = StreamController<List<String>>.broadcast(sync: true);
   final trips = <String, Trip>{};
+  final shifts = <String, ShiftRecord>{};
+  final shiftRecords = StreamController<CloudShifts>.broadcast(sync: true);
+  @override
+  Stream<CloudShifts> watchShifts() => shiftRecords.stream;
+  @override
+  Future<void> saveShift(ShiftRecord shift, {List<PauseRecord> finishedPauses = const []}) async {
+    shifts[shift.id] = shift;
+    for (final pause in finishedPauses) { pauses[pause.id] = pause; }
+    emit();
+  }
   final pauses = <String, PauseRecord>{};
   final pauseRecords = StreamController<CloudPauses>.broadcast(sync: true);
   @override
@@ -25,7 +36,7 @@ class FakeBackend implements UserLogbookBackend {
   @override
   Future<void> saveDriverNumber(String number) async { driverNumber = number; driverRecords.add(number); }
   bool fail = false;
-  void emit() { records.add(CloudRecords(trips.values.toList())); pauseRecords.add(CloudPauses(pauses.values.toList())); }
+  void emit() { shiftRecords.add(CloudShifts(shifts.values.toList())); records.add(CloudRecords(trips.values.toList())); pauseRecords.add(CloudPauses(pauses.values.toList())); }
   @override
   Stream<CloudRecords> watchTrips() => records.stream;
   @override
@@ -39,7 +50,7 @@ class FakeBackend implements UserLogbookBackend {
   Future<void> deleteTrip(String id) async { trips[id] = markTripDeleted(trips[id]!); emit(); }
   @override
   Future<void> addSource(String name) async { sources.add(name); sourceRecords.add(sources); }
-  Future<void> close() async { await pauseRecords.close(); await records.close(); await sourceRecords.close(); await driverRecords.close(); }
+  Future<void> close() async { await shiftRecords.close(); await pauseRecords.close(); await records.close(); await sourceRecords.close(); await driverRecords.close(); }
 }
 Trip fare(String id, int cents) => Trip(id: id, at: DateTime(2026, 10, 5),
   cents: cents, source: 'Taxi', payment: PaymentMethod.cash);
@@ -70,6 +81,12 @@ void main() {
     expect(accountB.pauses, isEmpty);
     await accountA.savePause(pause.finish(DateTime.utc(2026, 10, 5, 12, 30)));
     expect(accountA.pauses.single.end, isNotNull);
+    final shift = ShiftRecord(id: 'work', start: DateTime.utc(2026, 10, 5, 8));
+    await accountA.saveShift(shift);
+    expect(accountA.shifts.single.running, true);
+    expect(accountB.shifts, isEmpty);
+    await accountA.finishShift(shift, DateTime.utc(2026, 10, 5, 16));
+    expect(accountA.shifts.single.running, false);
     expect((jsonDecode(accountA.exportJson()) as Map)['trips'], hasLength(2));
     await accountA.deleteTrip('one');
     expect(TripSummary(accountA.trips).trips.single.id, 'two');

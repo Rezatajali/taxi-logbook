@@ -5,10 +5,10 @@ Eine Codebasis für Android und Web; iPhone-Nutzer verwenden die veröffentlicht
 
 ## Funktionen der ersten Version
 
-Dunkles Dashboard mit grünen Diagrammen. In **Schichten → Fahrt erfassen**
+Dunkles Dashboard mit grünen Diagrammen. In **Fahrten → Fahrt erfassen**
 steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Karte, Rechnung,
 Bolt und FREENOW. Über „Quelle / Zahlung anpassen“ sind Kombinationen wie Uber + Bar möglich.
-Tagesschichten gruppieren die Fahrten nach Datum; Start-/Endzeiten folgen später.
+Fahrten gruppiert einzelne Fahrten nach Datum. Unter Schichten werden Schichtanfang, Schichtende und Pausen erfasst.
 
 - Fahrpreis in Euro, auf ganze Cent genau gespeichert; Ziffern werden als Cent eingegeben (2270 → 22,70 €).
 - Fahrtquelle (Taxi, Uber, Bolt, FREENOW oder eigene Quelle) **getrennt** von Zahlungsart (Bar, Karte, Rechnung, Über Plattform).
@@ -35,8 +35,7 @@ sie werden nicht automatisch einem neuen Konto zugeordnet.
 
 **Android-Test-APK bleibt lokal**, bis eine Android-App im Firebase-Projekt
 registriert und deren eigene Konfiguration ergänzt ist. Die Web-App-ID wird
-nicht für Android zweckentfremdet. GPS, Kilometerstände und Arbeitszeiten für
-vollständige Schichten folgen später. Umsatz ist vor Provisionen, Steuern und
+nicht für Android zweckentfremdet. GPS und Kilometerstände für vollständige Schichten folgen später. Arbeitszeiten werden manuell erfasst. Umsatz ist vor Provisionen, Steuern und
 Fahrzeugkosten, kein Nettogewinn.
 
 ## Lokal starten
@@ -109,3 +108,26 @@ GPS ist noch nicht aktiv. `PauseOrigin.gps` und die strikte Schwelle von mehr al
 15 Minuten Stillstand sind für die spätere Integration vorbereitet. Die Verbindung
 zum GPS, zuverlässige Stillstandserkennung und Abgrenzung von Wartezeit folgen später.
 
+
+## Schichten und Arbeitszeiten
+
+`users/{uid}/shifts/{id}` speichert Beginn, Ende und Erfassungsart; die bisherigen
+UID-Regeln gelten weiter. Anfang/Ende können manuell eingetragen oder durch
+Tippen auf Start/Ende erfasst werden. Schichtende beendet zugleich offene Pausen
+in einem atomaren Cloud-Batch. Überschneidungen werden anhand der geladenen
+Schichten abgelehnt; zwei gleichzeitig offline arbeitende Geräte können dennoch
+kollidieren. Zeitintervalle werden für tatsächliche Tages-/Monatswerte vereinigt.
+
+Der Monatsbericht zählt Tage mit erfassten Schichtzeiten auch ohne Fahrten.
+Nachtzeiten werden an lokaler Mitternacht aufgeteilt. Tatsächliche Arbeitszeit
+zieht ausschließlich erfasste Pausen innerhalb der Schichten ab. Die gewünschte
+Anrechnung für Schichten unter sechs Stunden wird separat ohne Pausenabzug
+angezeigt; dies ist keine gesetzliche Definition der Arbeitszeit. Es gibt keinen
+pauschalen Abzug von Pflichtpausen.
+
+Zeitwarnungen sind bei geöffneter App sichtbar: über 8 Stunden Arbeitszeit,
+ab 10 Stunden Arbeitszeit und ab 12 Stunden Schichtdauer. Sie sind kein vollständiger
+Compliance-Check und keine Hintergrund-/Push-Alarme. Allgemeine Hinweise beziehen
+sich auf §§ 2–4 ArbZG (https://www.gesetze-im-internet.de/arbzg/); Sonderregelungen,
+Ausgleichszeiträume und Ruhezeiten werden nicht vollständig geprüft. GPS ist noch
+nicht verbunden und startet/beendet keine Schicht automatisch.

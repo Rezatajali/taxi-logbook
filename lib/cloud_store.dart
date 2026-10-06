@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'logbook.dart';
 import 'store.dart';
 import 'pauses.dart';
+import 'shifts.dart';
 
 class CloudRecords {
   const CloudRecords(this.trips, {this.pending = false, this.fromCache = false});
@@ -13,6 +14,8 @@ class CloudRecords {
 
 abstract class UserLogbookBackend {
   Stream<CloudRecords> watchTrips();
+  Stream<CloudShifts> watchShifts();
+  Future<void> saveShift(ShiftRecord shift, {List<PauseRecord> finishedPauses = const []});
   Stream<CloudPauses> watchPauses();
   Future<void> savePause(PauseRecord pause);
   Stream<List<String>> watchSources();
@@ -29,6 +32,12 @@ class CloudPauses {
   final bool pending;
 }
 
+class CloudShifts {
+  const CloudShifts(this.shifts, {this.pending = false});
+  final List<ShiftRecord> shifts;
+  final bool pending;
+}
+
 // Bind paths once to the signed-in UID. A new account gets a new backend/store.
 class FirestoreLogbookBackend implements UserLogbookBackend {
   FirestoreLogbookBackend(FirebaseFirestore db, String uid)
@@ -38,6 +47,20 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
   DocumentReference<Map<String, dynamic>> get settings =>
       user.collection('settings').doc('logbook');
 
+  @override
+  Stream<CloudShifts> watchShifts() => user.collection('shifts')
+    .snapshots(includeMetadataChanges: true).map((snapshot) => CloudShifts(
+      snapshot.docs.map((doc) => ShiftRecord.fromJson({...doc.data(), 'id': doc.id})).toList(),
+      pending: snapshot.metadata.hasPendingWrites));
+  @override
+  Future<void> saveShift(ShiftRecord shift, {List<PauseRecord> finishedPauses = const []}) {
+    final batch = user.firestore.batch();
+    batch.set(user.collection('shifts').doc(shift.id), shift.toJson());
+    for (final pause in finishedPauses) {
+      batch.set(user.collection('pauses').doc(pause.id), pause.toJson());
+    }
+    return batch.commit();
+  }
   @override
   Stream<CloudRecords> watchTrips() => trips
       .snapshots(includeMetadataChanges: true)
@@ -93,6 +116,14 @@ class CloudLogbookStore extends LogbookStore {
   final UserLogbookBackend backend;
   static const defaults = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
   List<Trip> _cloudTrips = [];
+  List<ShiftRecord> _cloudShifts = [];
+  bool _shiftsReady = false;
+  bool _shiftPending = false;
+  StreamSubscription<CloudShifts>? _shiftSubscription;
+  @override
+  List<ShiftRecord> get shifts => List.unmodifiable(_cloudShifts);
+  @override
+  bool get shiftsReady => _shiftsReady;
   List<PauseRecord> _cloudPauses = [];
   bool _pausesReady = false;
   bool _pausePending = false;
@@ -128,7 +159,7 @@ class CloudLogbookStore extends LogbookStore {
   @override
   bool get ready => _ready && _error == null;
   @override
-  bool get pendingWrites => _pending || _pausePending || _pendingOperations > 0;
+  bool get pendingWrites => _pending || _shiftPending || _pausePending || _pendingOperations > 0;
   @override
   String? get syncError => _error;
   @override
@@ -144,8 +175,10 @@ class CloudLogbookStore extends LogbookStore {
     final generation = ++_generation;
     _tripSubscription?.cancel();
     _pauseSubscription?.cancel();
+    _shiftSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();
+    _shiftsReady = false;
     _pausesReady = false;
     _loading = true;
     _error = null;
@@ -169,6 +202,13 @@ class CloudLogbookStore extends LogbookStore {
       _cached = records.fromCache;
       _ready = true;
       _loading = false;
+      _notify();
+    }, onError: failed);
+    _shiftSubscription = backend.watchShifts().listen((records) {
+      if (!active()) return;
+      _cloudShifts = records.shifts;
+      _shiftPending = records.pending;
+      _shiftsReady = true;
       _notify();
     }, onError: failed);
     _pauseSubscription = backend.watchPauses().listen((records) {
@@ -225,6 +265,21 @@ class CloudLogbookStore extends LogbookStore {
     }
   }
   @override
+  Future<void> saveShift(ShiftRecord shift) {
+    if (!shiftsReady) throw StateError('Schichten werden noch geladen.');
+    validateShift(shifts, shift);
+    return _write(() => backend.saveShift(shift));
+  }
+  @override
+  Future<void> finishShift(ShiftRecord shift, DateTime end) {
+    if (!shiftsReady || !pausesReady) throw StateError('Zeiten werden noch geladen.');
+    final finished = shift.finish(end);
+    validateShift(shifts, finished);
+    final breaks = pauses.where((p) => p.running && p.start.isBefore(end))
+      .map((p) => p.finish(end)).toList();
+    return _write(() => backend.saveShift(finished, finishedPauses: breaks));
+  }
+  @override
   Future<void> savePause(PauseRecord pause) {
     if (!pausesReady) throw StateError('Pausen werden noch geladen.');
     return _write(() => backend.savePause(pause));
@@ -256,6 +311,7 @@ class CloudLogbookStore extends LogbookStore {
     _generation++;
     _tripSubscription?.cancel();
     _pauseSubscription?.cancel();
+    _shiftSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();
     super.dispose();

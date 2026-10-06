@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,6 +18,7 @@ import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
 import 'pause_screen.dart';
+import 'shifts.dart';
 
 const ink = Color(0xFFECECF4);
 const accent = Color(0xFFF3C45D);
@@ -128,6 +130,42 @@ class LogbookHome extends StatefulWidget {
 }
 
 class _LogbookHomeState extends State<LogbookHome> {
+  Timer? workTimer;
+  void updateWorkTimer() {
+    if (widget.store.shifts.any((s) => s.running)) {
+      workTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      workTimer?.cancel();
+      workTimer = null;
+    }
+  }
+  @override
+  void initState() {
+    super.initState();
+    widget.store.addListener(updateWorkTimer);
+    updateWorkTimer();
+  }
+  @override
+  void dispose() {
+    widget.store.removeListener(updateWorkTimer);
+    workTimer?.cancel();
+    super.dispose();
+  }
+
+  String? get currentWorkWarning {
+    final now = DateTime.now();
+    final running = widget.store.shifts.where((s) => s.running).toList();
+    if (running.isEmpty || !widget.store.shiftsReady || !widget.store.pausesReady) return null;
+    final daily = workTotalsForDay(widget.store.shifts, widget.store.pauses, now, now);
+    final shift = running.first;
+    final single = workTotals([shift], widget.store.pauses, shift.start, now, now);
+    final gross = single.gross > daily.gross ? single.gross : daily.gross;
+    final net = single.net > daily.net ? single.net : daily.net;
+    return workWarning(WorkTotals(gross, gross - net, Duration.zero));
+  }
+
   int tab = 0;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime day = DateUtils.dateOnly(DateTime.now());
@@ -191,6 +229,11 @@ class _LogbookHomeState extends State<LogbookHome> {
                   if (widget.store.pendingWrites) const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.')),
+                  if (currentWorkWarning != null) Card(color: Colors.red.shade900,
+                    child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+                      const Icon(Icons.warning_amber), const SizedBox(width: 12),
+                      Expanded(child: Text(currentWorkWarning!, key: const Key('work-warning'))),
+                    ]))),
                   switch (tab) {
                     0 => todayPage(),
                     1 => tripsPage(),
@@ -221,8 +264,8 @@ class _LogbookHomeState extends State<LogbookHome> {
               NavigationDestination(icon: Icon(Icons.space_dashboard_outlined),
                   selectedIcon: Icon(Icons.space_dashboard), label: 'Home'),
               NavigationDestination(icon: Icon(Icons.local_taxi_outlined),
-                  selectedIcon: Icon(Icons.local_taxi), label: 'Schichten'),
-              NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Pausen'),
+                  selectedIcon: Icon(Icons.local_taxi), label: 'Fahrten'),
+              NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Schichten'),
               NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Monat'),
               NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
             ],
@@ -339,7 +382,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       }, summary.totalCents)),
       panel('Letzte Fahrten', trips.isEmpty
           ? emptyState('Noch keine Fahrt heute.',
-              'Öffne „Schichten“ und tippe auf „Fahrt erfassen“.')
+              'Öffne „Fahrten“ und tippe auf „Fahrt erfassen“.')
           : Column(children: trips.take(5).map(tripTile).toList())),
     ]);
   }
@@ -449,7 +492,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         (paymentFilter == null || t.payment == paymentFilter)).toList()
       ..sort((a, b) => b.at.compareTo(a.at));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Deine Schichten', 'Fahrten deiner Tagesschicht erfassen und bearbeiten.'),
+      title('Deine Fahrten', 'Fahrten deiner Tagesschicht erfassen und bearbeiten.'),
       Row(children: [
         IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
@@ -495,6 +538,12 @@ class _LogbookHomeState extends State<LogbookHome> {
 
   Widget monthPage() {
     final summary = TripSummary(tripsInMonth(widget.store.trips, month));
+    final now = DateTime.now();
+    final times = workTotals(widget.store.shifts, widget.store.pauses,
+      DateTime(month.year, month.month), DateTime(month.year, month.month + 1), now);
+    final workDays = [for (var i = 1; i <= DateTime(month.year, month.month + 1, 0).day; i++)
+      (DateTime(month.year, month.month, i), workTotalsForDay(widget.store.shifts, widget.store.pauses,
+        DateTime(month.year, month.month, i), now))].where((v) => v.$2.gross > Duration.zero).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title('Dein Monatsbericht', 'Umsatz, Entwicklung und Quellen auf einen Blick.'),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -512,6 +561,20 @@ class _LogbookHomeState extends State<LogbookHome> {
         ('Ø Tag mit Fahrten', money(summary.averageWorkingDayCents), Icons.trending_up),
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
       ]),
+      panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
+        else ...[
+          Text('${workDays.length} Arbeitstage · ${pauseTime(times.net)} Arbeitszeit',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          Text('Schichtzeit: ${pauseTime(times.gross)} · Pausen: ${pauseTime(times.breaks)}'),
+          Text('Anrechnung nach deiner Regel: ${pauseTime(times.credited)}'),
+          const SizedBox(height: 12),
+          if (workDays.isEmpty) const Text('Schichtanfang und Schichtende unter „Schichten“ erfassen.'),
+          for (final entry in workDays) Padding(padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text('${DateFormat('dd.MM.').format(entry.$1)} · ${pauseTime(entry.$2.net)} Arbeitszeit '
+              '· ${pauseTime(entry.$2.breaks)} Pause')),
+        ],
+      ])),
       panel('Umsatz pro Tag', DailyChart(key: ValueKey(month),
           month: month, values: summary.dailyCents(month))),
       panel('Umsatz nach Quelle', summary.trips.isEmpty
