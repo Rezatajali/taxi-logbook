@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
+import 'help_screen.dart';
 import 'store.dart';
 
 class AuthGate extends StatefulWidget {
@@ -194,6 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
             TextButton(onPressed: busy ? null : () => changeMode(
               mode == LoginMode.login ? LoginMode.register : LoginMode.login),
               child: Text(mode == LoginMode.login ? 'Noch kein Konto? Registrieren' : 'Zur Anmeldung')),
+            TextButton.icon(onPressed: busy ? null : () => Navigator.push(context,
+              MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
+              icon: const Icon(Icons.help_outline), label: const Text('Hilfe · Anleitung')),
             const Divider(height: 32),
             TextButton(onPressed: busy ? null : widget.onLocal,
               child: const Text('Lokale Vorschau / bisherige Einträge')),

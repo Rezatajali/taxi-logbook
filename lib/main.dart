@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
+import 'help_screen.dart';
 
 const ink = Color(0xFFECECF4);
 const accent = Color(0xFFF3C45D);
@@ -158,6 +159,9 @@ class _LogbookHomeState extends State<LogbookHome> {
                   style: const TextStyle(fontWeight: FontWeight.w800))),
             ]),
             actions: [
+              IconButton(tooltip: 'Hilfe · Anleitung', icon: const Icon(Icons.help_outline),
+                onPressed: () => Navigator.push(context,
+                  MaterialPageRoute<void>(builder: (_) => const HelpScreen()))),
               Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Chip(
@@ -552,6 +556,11 @@ class _LogbookHomeState extends State<LogbookHome> {
 
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         title('Dein Logbuch', 'Deine Fahrernummer und dein Konto.'),
+        Card(child: ListTile(leading: const Icon(Icons.menu_book_outlined),
+          title: const Text('Hilfe · Anleitung'), subtitle: const Text('Mit Bildern Schritt für Schritt'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(context,
+            MaterialPageRoute<void>(builder: (_) => const HelpScreen())))),
         panel('Deine Fahrernummer', Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.store.driverNumber.isEmpty ? 'Noch keine Nummer eingetragen' : widget.store.driverLabel,
