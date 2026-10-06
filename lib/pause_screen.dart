@@ -108,7 +108,7 @@ class _PausesPanelState extends State<PausesPanel> {
         'Pausen über Mitternacht werden auf die jeweiligen Tage verteilt.'),
       const SizedBox(height: 12),
       const Text('GPS folgt später: Ein erkannter Stillstand von mehr als 15 Minuten '
-        'soll eine Pause vorschlagen. Wartezeit ist nicht immer eine Pause; '
+        'soll als Pause erfasst werden. Wartezeit ist nicht immer eine Pause; '
         'die Erkennung ist derzeit noch nicht aktiv.', style: TextStyle(color: Colors.white60)),
     ]);
   }
@@ -144,7 +144,8 @@ class _ManualPauseDialogState extends State<ManualPauseDialog> {
       final picked = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(value));
       if (picked != null) next = DateTime(value.year, value.month, value.day, picked.hour, picked.minute);
     }
-    if (next != null && mounted) setState(() { if (begin) { start = next!; } else { end = next!; } error = null; });
+    final selected = next;
+    if (selected != null && mounted) setState(() { if (begin) { start = selected; } else { end = selected; } error = null; });
   }
   Widget controls(String label, bool begin, DateTime value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start, children: [

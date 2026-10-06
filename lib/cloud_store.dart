@@ -194,7 +194,7 @@ class CloudLogbookStore extends LogbookStore {
   @override
   Future<void> retry() async { load(); }
 
-  Future<void> _write(Future<void> Function() action) async {
+  Future<void> _write(Future<void> Function() action, {bool queued = true}) async {
     if (_disposed || !ready || saving) {
       throw StateError('Cloud-Daten sind noch nicht bereit.');
     }
@@ -213,7 +213,12 @@ class CloudLogbookStore extends LogbookStore {
         _notify();
         Error.throwWithStackTrace(error, stack);
       });
-      await operation.timeout(const Duration(seconds: 20), onTimeout: () {});
+      if (queued) {
+        await operation.timeout(const Duration(seconds: 20), onTimeout: () {});
+      } else {
+        // Transactions require an online read; never report them saved on timeout.
+        await operation;
+      }
     } finally {
       saving = false;
       _notify();
@@ -225,9 +230,9 @@ class CloudLogbookStore extends LogbookStore {
     return _write(() => backend.savePause(pause));
   }
   @override
-  Future<void> saveTrip(Trip trip) => _write(() => backend.saveTrip(trip));
+  Future<void> saveTrip(Trip trip) => _write(() => backend.saveTrip(trip), queued: false);
   @override
-  Future<void> deleteTrip(String id) => _write(() => backend.deleteTrip(id));
+  Future<void> deleteTrip(String id) => _write(() => backend.deleteTrip(id), queued: false);
   @override
   Future<void> addSource(String input) async {
     final name = input.trim();

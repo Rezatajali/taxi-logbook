@@ -1,7 +1,7 @@
 # Taxi Logbuch
 
 Deutschsprachiger Flutter-Prototyp für die manuelle Erfassung von Taxifahrten.
-Eine Codebasis für Android und Web; iPhone-Nutzer verwenden später die gehostete Webversion.
+Eine Codebasis für Android und Web; iPhone-Nutzer verwenden die veröffentlichte Webversion.
 
 ## Funktionen der ersten Version
 
@@ -10,10 +10,12 @@ steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Karte, Rechnung,
 Bolt und FREENOW. Über „Quelle / Zahlung anpassen“ sind Kombinationen wie Uber + Bar möglich.
 Tagesschichten gruppieren die Fahrten nach Datum; Start-/Endzeiten folgen später.
 
-- Fahrpreis in Euro, auf ganze Cent genau gespeichert; Eingabe mit Komma oder Punkt.
+- Fahrpreis in Euro, auf ganze Cent genau gespeichert; Ziffern werden als Cent eingegeben (2270 → 22,70 €).
 - Fahrtquelle (Taxi, Uber, Bolt, FREENOW oder eigene Quelle) **getrennt** von Zahlungsart (Bar, Karte, Rechnung, Über Plattform).
 - Datum/Uhrzeit, optionale Fahrtstrecke und Notiz.
-- Fahrten bearbeiten und nach Bestätigung löschen; Tagesfilter, Quellenfilter und Zahlungsfilter.
+- Fahrten bearbeiten (gelb) und nach Bestätigung als gelöscht markieren (rot, durchgestrichen). Alte Werte bleiben mit Zeitpunkt im Änderungsverlauf; gelöschte Fahrten zählen nicht zum Umsatz.
+- Pausen mit Start-/Stop-Timer oder manuell mit Beginn und Ende. Laufende Timer bleiben beim Schließen erhalten; Tageswerte teilen Pausen über Mitternacht auf und zählen überlappende Zeiten einmal.
+- Tagesfilter, Quellenfilter und Zahlungsfilter.
 - Tagesumsatz, Barumsatz, Monatsumsatz, Durchschnitt je Tag mit Fahrten und anklickbares Tagesdiagramm.
 - €/km nur aus Fahrten mit eingetragener Strecke. Unbekannte Strecken und Leerfahrten werden nicht berücksichtigt.
 - Lokale Speicherung und JSON-Export in die Zwischenablage.
@@ -81,8 +83,8 @@ bash tool/deploy-hosting.sh
 ```
 
 Eine Domain muss nicht gekauft werden: Firebase Hosting stellt `.web.app` bereit.
-Die persönliche Sites-Vorschau bleibt privat und ist noch kein allgemeiner Link
-für andere Fahrer. Die Web-App kann im Browser genutzt und zum Home-Bildschirm
+Die Webversion ist öffentlich unter https://taxi-logbuch-preview.rztajalli.chatgpt.site erreichbar.
+Jeder Fahrer registriert sich und sieht die Daten seines eigenen Kontos. Die Web-App kann im Browser genutzt und zum Home-Bildschirm
 hinzugefügt werden; für sie müssen Benutzer keine neue APK bei Änderungen laden.
 Android-APKs sind direkt verteilbar, Updates müssen ohne eigenen Updater aber
 manuell installiert werden. Release-Updates benötigen denselben Signaturschlüssel.
@@ -91,3 +93,19 @@ Das fertige Hosting-Paket enthält build/web, firebase.json, .firebaserc und
 `tool/deploy-hosting.sh`. Mit Node.js LTS kann es ohne lokale Flutter-Installation
 veröffentlicht werden. Die Anmeldung erfolgt im eigenen Google-Konto. Das Skript
 veröffentlicht ausschließlich Hosting und ändert keine Firestore-Regeln.
+
+## Pausen und Änderungsverlauf
+
+Firestore speichert Pausen unter `users/{uid}/pauses/{id}` und Fahrten unter
+`users/{uid}/trips/{id}`. Die bestehenden UID-Regeln gelten für beide Pfade.
+Fahrtänderungen und Löschmarkierungen lesen den aktuellen Datensatz in einer
+Transaktion, um den letzten Zustand vor der Änderung zu erhalten; sie benötigen
+Internet. Der Verlauf ist für die App bestimmt und kein unveränderliches Archiv.
+Früher endgültig gelöschte Einträge lassen sich damit nicht nachträglich wiederherstellen.
+JSON-Exporte enthalten alle aktuellen Fahrten einschließlich Löschmarkierungen,
+Änderungsverläufe und Pausen. Das lokale Format v1 wird weiter gelesen.
+
+GPS ist noch nicht aktiv. `PauseOrigin.gps` und die strikte Schwelle von mehr als
+15 Minuten Stillstand sind für die spätere Integration vorbereitet. Die Verbindung
+zum GPS, zuverlässige Stillstandserkennung und Abgrenzung von Wartezeit folgen später.
+
