@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'logbook.dart';
 import 'store.dart';
+import 'pauses.dart';
 
 class CloudRecords {
   const CloudRecords(this.trips, {this.pending = false, this.fromCache = false});
@@ -12,12 +13,20 @@ class CloudRecords {
 
 abstract class UserLogbookBackend {
   Stream<CloudRecords> watchTrips();
+  Stream<CloudPauses> watchPauses();
+  Future<void> savePause(PauseRecord pause);
   Stream<List<String>> watchSources();
   Stream<String> watchDriverNumber();
   Future<void> saveDriverNumber(String number);
   Future<void> saveTrip(Trip trip);
   Future<void> deleteTrip(String id);
   Future<void> addSource(String source);
+}
+
+class CloudPauses {
+  const CloudPauses(this.pauses, {this.pending = false});
+  final List<PauseRecord> pauses;
+  final bool pending;
 }
 
 // Bind paths once to the signed-in UID. A new account gets a new backend/store.
@@ -54,9 +63,26 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
   Future<void> saveDriverNumber(String number) => settings.set(
       {'driverNumber': number}, SetOptions(merge: true));
   @override
-  Future<void> saveTrip(Trip trip) => trips.doc(trip.id).set(trip.toJson());
+  Future<void> saveTrip(Trip trip) => user.firestore.runTransaction((transaction) async {
+    final ref = trips.doc(trip.id);
+    final snapshot = await transaction.get(ref);
+    final previous = snapshot.exists ? Trip.fromJson({...snapshot.data()!, 'id': ref.id}) : null;
+    transaction.set(ref, reviseTrip(previous, trip).toJson());
+  });
   @override
-  Future<void> deleteTrip(String id) => trips.doc(id).delete();
+  Future<void> deleteTrip(String id) => user.firestore.runTransaction((transaction) async {
+    final ref = trips.doc(id);
+    final snapshot = await transaction.get(ref);
+    if (!snapshot.exists) return;
+    transaction.set(ref, markTripDeleted(Trip.fromJson({...snapshot.data()!, 'id': ref.id})).toJson());
+  });
+  @override
+  Stream<CloudPauses> watchPauses() => user.collection('pauses')
+    .snapshots(includeMetadataChanges: true).map((snapshot) => CloudPauses(
+      snapshot.docs.map((doc) => PauseRecord.fromJson({...doc.data(), 'id': doc.id})).toList(),
+      pending: snapshot.metadata.hasPendingWrites));
+  @override
+  Future<void> savePause(PauseRecord pause) => user.collection('pauses').doc(pause.id).set(pause.toJson());
   @override
   Future<void> addSource(String source) => settings.set(
       {'sources': FieldValue.arrayUnion([source])}, SetOptions(merge: true));
@@ -67,6 +93,14 @@ class CloudLogbookStore extends LogbookStore {
   final UserLogbookBackend backend;
   static const defaults = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
   List<Trip> _cloudTrips = [];
+  List<PauseRecord> _cloudPauses = [];
+  bool _pausesReady = false;
+  bool _pausePending = false;
+  StreamSubscription<CloudPauses>? _pauseSubscription;
+  @override
+  List<PauseRecord> get pauses => List.unmodifiable(_cloudPauses);
+  @override
+  bool get pausesReady => _pausesReady;
   List<String> _cloudSources = [...defaults];
   StreamSubscription<CloudRecords>? _tripSubscription;
   StreamSubscription<List<String>>? _sourceSubscription;
@@ -94,7 +128,7 @@ class CloudLogbookStore extends LogbookStore {
   @override
   bool get ready => _ready && _error == null;
   @override
-  bool get pendingWrites => _pending || _pendingOperations > 0;
+  bool get pendingWrites => _pending || _pausePending || _pendingOperations > 0;
   @override
   String? get syncError => _error;
   @override
@@ -109,8 +143,10 @@ class CloudLogbookStore extends LogbookStore {
   void load() {
     final generation = ++_generation;
     _tripSubscription?.cancel();
+    _pauseSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();
+    _pausesReady = false;
     _loading = true;
     _error = null;
     _notify();
@@ -133,6 +169,13 @@ class CloudLogbookStore extends LogbookStore {
       _cached = records.fromCache;
       _ready = true;
       _loading = false;
+      _notify();
+    }, onError: failed);
+    _pauseSubscription = backend.watchPauses().listen((records) {
+      if (!active()) return;
+      _cloudPauses = records.pauses;
+      _pausePending = records.pending;
+      _pausesReady = true;
       _notify();
     }, onError: failed);
     _driverSubscription = backend.watchDriverNumber().listen((number) {
@@ -177,6 +220,11 @@ class CloudLogbookStore extends LogbookStore {
     }
   }
   @override
+  Future<void> savePause(PauseRecord pause) {
+    if (!pausesReady) throw StateError('Pausen werden noch geladen.');
+    return _write(() => backend.savePause(pause));
+  }
+  @override
   Future<void> saveTrip(Trip trip) => _write(() => backend.saveTrip(trip));
   @override
   Future<void> deleteTrip(String id) => _write(() => backend.deleteTrip(id));
@@ -202,8 +250,10 @@ class CloudLogbookStore extends LogbookStore {
     _disposed = true;
     _generation++;
     _tripSubscription?.cancel();
+    _pauseSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();
     super.dispose();
   }
 }
+

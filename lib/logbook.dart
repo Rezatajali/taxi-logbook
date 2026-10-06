@@ -55,6 +55,9 @@ class Trip {
     required this.payment,
     this.kilometers,
     this.note = '',
+    this.editedAt,
+    this.deletedAt,
+    this.history = const [],
   });
 
   final String id;
@@ -64,6 +67,10 @@ class Trip {
   final PaymentMethod payment;
   final double? kilometers;
   final String note;
+  final DateTime? editedAt;
+  final DateTime? deletedAt;
+  final List<Map<String, dynamic>> history;
+  bool get deleted => deletedAt != null;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -73,6 +80,9 @@ class Trip {
         'payment': payment.name,
         'kilometers': kilometers,
         'note': note,
+        'editedAt': editedAt?.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
+        'history': history,
       };
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -91,6 +101,9 @@ class Trip {
       payment: PaymentMethod.values.byName(json['payment'] as String),
       kilometers: kilometers,
       note: json['note'] as String? ?? '',
+      editedAt: DateTime.tryParse(json['editedAt'] as String? ?? ''),
+      deletedAt: DateTime.tryParse(json['deletedAt'] as String? ?? ''),
+      history: List<Map<String, dynamic>>.unmodifiable((json['history'] as List? ?? []).map((entry) => Map<String, dynamic>.from(entry as Map))),
     );
   }
 }
@@ -103,7 +116,7 @@ List<Trip> tripsInMonth(Iterable<Trip> trips, DateTime month) => trips
     .toList();
 
 class TripSummary {
-  TripSummary(Iterable<Trip> input) : trips = List.unmodifiable(input);
+  TripSummary(Iterable<Trip> input) : trips = List.unmodifiable(input.where((trip) => !trip.deleted));
   final List<Trip> trips;
 
   int get totalCents => trips.fold(0, (sum, trip) => sum + trip.cents);
@@ -153,4 +166,30 @@ class TripSummary {
     }
     return days;
   }
+}
+
+
+// Flat snapshots retain the old values without recursively nesting history.
+Trip reviseTrip(Trip? previous, Trip next, {DateTime? now}) {
+  if (previous == null) return next;
+  if (previous.deleted) throw StateError('Gelöschte Fahrt kann nicht bearbeitet werden.');
+  if (previous.at == next.at && previous.cents == next.cents &&
+      previous.source == next.source && previous.payment == next.payment &&
+      previous.kilometers == next.kilometers && previous.note == next.note) return previous;
+  final changed = now ?? DateTime.now().toUtc();
+  final snapshot = previous.toJson()..remove('history');
+  snapshot['action'] = 'Bearbeitet';
+  snapshot['changedAt'] = changed.toIso8601String();
+  return Trip.fromJson({...next.toJson(), 'editedAt': changed.toIso8601String(),
+    'history': [...previous.history, snapshot]});
+}
+
+Trip markTripDeleted(Trip previous, {DateTime? now}) {
+  if (previous.deleted) return previous;
+  final changed = now ?? DateTime.now().toUtc();
+  final snapshot = previous.toJson()..remove('history');
+  snapshot['action'] = 'Gelöscht';
+  snapshot['changedAt'] = changed.toIso8601String();
+  return Trip.fromJson({...previous.toJson(), 'deletedAt': changed.toIso8601String(),
+    'history': [...previous.history, snapshot]});
 }

@@ -16,6 +16,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'pause_screen.dart';
 
 const ink = Color(0xFFECECF4);
 const accent = Color(0xFFF3C45D);
@@ -193,7 +194,8 @@ class _LogbookHomeState extends State<LogbookHome> {
                   switch (tab) {
                     0 => todayPage(),
                     1 => tripsPage(),
-                    2 => monthPage(),
+                    2 => PausesPanel(store: widget.store),
+                    3 => monthPage(),
                     _ => settingsPage(),
                   },
                 ]),
@@ -220,6 +222,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                   selectedIcon: Icon(Icons.space_dashboard), label: 'Home'),
               NavigationDestination(icon: Icon(Icons.local_taxi_outlined),
                   selectedIcon: Icon(Icons.local_taxi), label: 'Schichten'),
+              NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Pausen'),
               NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Monat'),
               NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
             ],
@@ -313,7 +316,7 @@ class _LogbookHomeState extends State<LogbookHome> {
     final summary = TripSummary(trips);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title('Dein Tag im Überblick', DateFormat('EEEE, d. MMMM', 'de_DE').format(now)),
-      heroCard('Umsatz heute', summary.totalCents, '${trips.length} Fahrten erfasst'),
+      heroCard('Umsatz heute', summary.totalCents, '${TripSummary(trips).trips.length} Fahrten erfasst'),
       metrics([
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
         ('Ohne Barzahlung', money(summary.totalCents - summary.cashCents),
@@ -388,32 +391,56 @@ class _LogbookHomeState extends State<LogbookHome> {
     catch (_) { if (mounted) message('Löschen nicht möglich. Bitte erneut versuchen.'); }
   }
 
-  Widget tripTile(Trip trip) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Column(children: [
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(widget.store.driverLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · '
-          '${trip.source} · ${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}'),
-        trailing: Text(money(trip.cents),
-          style: const TextStyle(fontWeight: FontWeight.w800, color: ink)),
-        onTap: widget.store.ready && !widget.store.saving ? () => editTrip(trip) : null,
-      ),
-      Row(children: [
+  Future<void> showHistory(Trip trip) => showDialog<void>(context: context,
+    builder: (context) => AlertDialog(title: const Text('Änderungsverlauf'),
+      content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
+        mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final entry in trip.history.reversed) Padding(padding: const EdgeInsets.only(bottom: 18),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('${entry['action']} · ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.parse(entry['changedAt'] as String).toLocal())}',
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text('Vorher: ${money(entry['cents'] as int)} · ${entry['source']} · '
+              '${PaymentMethod.values.byName(entry['payment'] as String).label}'),
+            Text('Fahrt: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.parse(entry['at'] as String))}'),
+            if (entry['kilometers'] != null) Text('Strecke: ${entry['kilometers']} km'),
+            if ((entry['note'] as String? ?? '').isNotEmpty) Text('Notiz: ${entry['note']}'),
+          ])),
+      ]))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Schließen'))]));
+
+  Widget tripTile(Trip trip) {
+    final color = trip.deleted ? Colors.red.shade300 : trip.editedAt != null ? accent : ink;
+    final style = TextStyle(fontWeight: FontWeight.w800, color: color,
+      decoration: trip.deleted ? TextDecoration.lineThrough : null);
+    final editable = !trip.deleted && widget.store.ready && !widget.store.saving;
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(children: [
+      ListTile(contentPadding: EdgeInsets.zero,
+        title: Text(widget.store.driverLabel, style: style),
+        subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · ${trip.source} · '
+          '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
+          style: TextStyle(color: trip.deleted ? color : null,
+            decoration: trip.deleted ? TextDecoration.lineThrough : null)),
+        trailing: Text(money(trip.cents), style: style),
+        onTap: editable ? () => editTrip(trip) : null),
+      if (trip.deleted || trip.editedAt != null) Align(alignment: Alignment.centerLeft,
+        child: Text(trip.deleted ? 'Gelöscht · nicht im Umsatz' : 'Bearbeitet',
+          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))),
+      if (!trip.deleted) Row(children: [
         Expanded(child: OutlinedButton.icon(key: ValueKey('edit-${trip.id}'),
-          onPressed: widget.store.ready && !widget.store.saving ? () => editTrip(trip) : null,
+          onPressed: editable ? () => editTrip(trip) : null,
           icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Bearbeiten'))),
         const SizedBox(width: 12),
         Expanded(child: TextButton.icon(key: ValueKey('delete-${trip.id}'),
-          onPressed: widget.store.ready && !widget.store.saving ? () => deleteTrip(trip) : null,
+          onPressed: editable ? () => deleteTrip(trip) : null,
           icon: const Icon(Icons.delete_outline, size: 18), label: const Text('Löschen'),
           style: TextButton.styleFrom(foregroundColor: Colors.red.shade300,
             minimumSize: const Size(0, 48)))),
       ]),
+      if (trip.history.isNotEmpty) Align(alignment: Alignment.centerLeft,
+        child: TextButton.icon(onPressed: () => showHistory(trip),
+          icon: const Icon(Icons.history, size: 18), label: const Text('Änderungsverlauf'))),
       const Divider(),
-    ]),
-  );
+    ]));
+  }
 
   Widget tripsPage() {
     final trips = widget.store.trips.where((t) =>
@@ -459,7 +486,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           ChoiceChip(label: Text(method.label), selected: paymentFilter == method,
               onSelected: (_) => setState(() => paymentFilter = method)),
       ]),
-      panel('${trips.length} Fahrten · ${money(TripSummary(trips).totalCents)}',
+      panel('${TripSummary(trips).trips.length} Fahrten · ${money(TripSummary(trips).totalCents)}',
           trips.isEmpty
             ? emptyState('Keine passenden Fahrten.', 'Wähle einen anderen Tag oder erfasse eine Fahrt.')
             : Column(children: trips.map(tripTile).toList())),
@@ -601,7 +628,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         panel('Daten exportieren', Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Alle Fahrten und Quellen als JSON in die Zwischenablage '
+            const Text('Alle Fahrten, Änderungsverläufe, Pausen und Quellen als JSON in die Zwischenablage '
                 'kopieren und anschließend in einer Datei sichern.'),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -786,7 +813,7 @@ class _TripEditorState extends State<TripEditor> {
   Future<void> delete() async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: const Text('Fahrt löschen?'),
-      content: const Text('Der Eintrag wird aus dem Logbuch entfernt.'),
+      content: const Text('Die Fahrt bleibt als gelöscht sichtbar und zählt nicht mehr zum Umsatz.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
@@ -995,3 +1022,4 @@ class _FareTypePickerState extends State<FareTypePicker> {
     ),
   );
 }
+

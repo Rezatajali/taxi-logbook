@@ -5,11 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taxi_logbook/cloud_store.dart';
 import 'package:taxi_logbook/logbook.dart';
 import 'package:taxi_logbook/store.dart';
+import 'package:taxi_logbook/pauses.dart';
 
 class FakeBackend implements UserLogbookBackend {
   final records = StreamController<CloudRecords>.broadcast(sync: true);
   final sourceRecords = StreamController<List<String>>.broadcast(sync: true);
   final trips = <String, Trip>{};
+  final pauses = <String, PauseRecord>{};
+  final pauseRecords = StreamController<CloudPauses>.broadcast(sync: true);
+  @override
+  Stream<CloudPauses> watchPauses() => pauseRecords.stream;
+  @override
+  Future<void> savePause(PauseRecord pause) async { pauses[pause.id] = pause; pauseRecords.add(CloudPauses(pauses.values.toList())); }
   final sources = <String>[];
   final driverRecords = StreamController<String>.broadcast(sync: true);
   String driverNumber = '';
@@ -18,7 +25,7 @@ class FakeBackend implements UserLogbookBackend {
   @override
   Future<void> saveDriverNumber(String number) async { driverNumber = number; driverRecords.add(number); }
   bool fail = false;
-  void emit() => records.add(CloudRecords(trips.values.toList()));
+  void emit() { records.add(CloudRecords(trips.values.toList())); pauseRecords.add(CloudPauses(pauses.values.toList())); }
   @override
   Stream<CloudRecords> watchTrips() => records.stream;
   @override
@@ -26,13 +33,13 @@ class FakeBackend implements UserLogbookBackend {
   @override
   Future<void> saveTrip(Trip trip) async {
     if (fail) throw StateError('denied');
-    trips[trip.id] = trip; emit();
+    trips[trip.id] = reviseTrip(trips[trip.id], trip); emit();
   }
   @override
-  Future<void> deleteTrip(String id) async { trips.remove(id); emit(); }
+  Future<void> deleteTrip(String id) async { trips[id] = markTripDeleted(trips[id]!); emit(); }
   @override
   Future<void> addSource(String name) async { sources.add(name); sourceRecords.add(sources); }
-  Future<void> close() async { await records.close(); await sourceRecords.close(); await driverRecords.close(); }
+  Future<void> close() async { await pauseRecords.close(); await records.close(); await sourceRecords.close(); await driverRecords.close(); }
 }
 Trip fare(String id, int cents) => Trip(id: id, at: DateTime(2026, 10, 5),
   cents: cents, source: 'Taxi', payment: PaymentMethod.cash);
@@ -57,13 +64,19 @@ void main() {
     await accountA.saveTrip(fare('one', 3000));
     expect(accountA.trips, hasLength(2));
     expect(accountB.trips, isEmpty);
+    final pause = PauseRecord(id: 'break', start: DateTime.utc(2026, 10, 5, 12), origin: PauseOrigin.timer);
+    await accountA.savePause(pause);
+    expect(accountA.pauses.single.running, true);
+    expect(accountB.pauses, isEmpty);
+    await accountA.savePause(pause.finish(DateTime.utc(2026, 10, 5, 12, 30)));
+    expect(accountA.pauses.single.end, isNotNull);
     expect((jsonDecode(accountA.exportJson()) as Map)['trips'], hasLength(2));
     await accountA.deleteTrip('one');
-    expect(accountA.trips.single.id, 'two');
+    expect(TripSummary(accountA.trips).trips.single.id, 'two');
     expect((LogbookStore(prefs)..load()).trips.single.id, 'old-local');
     backendA.fail = true;
     await expectLater(accountA.saveTrip(fare('rejected', 100)), throwsStateError);
-    expect(accountA.trips.single.id, 'two');
+    expect(TripSummary(accountA.trips).trips.single.id, 'two');
     expect(accountA.pendingWrites, false);
     expect(accountA.syncError, isNotNull);
     accountA.dispose(); accountB.dispose(); local.dispose();
@@ -81,3 +94,4 @@ void main() {
     await backend.close();
   });
 }
+

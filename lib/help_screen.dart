@@ -17,11 +17,13 @@ const _steps = [
   _GuideStep('Eine Fahrt erfassen',
     'Nur Ziffern tippen: 2270 wird zu 22,70 €. Für 22 Euro 2200 eingeben.\n\nNeben dem Betrag die Art wählen: Bar, Uber, Karte, Rechnung, Bolt oder FREENOW. Datum und Uhrzeit lassen sich getrennt ändern. Zum Schluss „Fahrt speichern“ tippen.', Icons.add_circle_outline),
   _GuideStep('Fahrten bearbeiten oder löschen',
-    'Jede Fahrt bleibt ein eigener Eintrag. Mit „Bearbeiten“ den Betrag oder die Angaben ändern und erneut speichern.\n\n„Löschen“ entfernt nur diese Fahrt nach deiner Bestätigung. Kilometer, Notiz und weitere Angaben sind optional.', Icons.edit_outlined),
+    'Jede Fahrt bleibt ein eigener Eintrag. Mit „Bearbeiten“ den Betrag oder die Angaben ändern und erneut speichern.\n\nBearbeitete Fahrten werden gelb markiert. Gelöschte Fahrten bleiben rot und durchgestrichen sichtbar, zählen aber nicht mehr zum Umsatz. Unter „Änderungsverlauf“ findest du die vorherigen Werte.', Icons.edit_outlined),
   _GuideStep('Monat: Umsatz und Diagramm',
     'Mit den Pfeilen den Monat auswählen. Hier findest du den Gesamtumsatz, Bar-Einnahmen und den Durchschnitt pro Tag mit Fahrten.\n\nIm Diagramm auf einen Tag tippen, um seinen Umsatz zu sehen. €/km berücksichtigt nur Fahrten mit eingetragener Strecke.', Icons.bar_chart),
   _GuideStep('Profil: Deine Fahrernummer',
     'Unter „Nummer ändern“ deine eigene Nummer eintragen, zum Beispiel 267. Danach steht „Fahrer 267“ oben und bei deinen Fahrten.\n\nAngemeldete Fahrer speichern ihre Daten im eigenen Cloud-Konto. Die lokale Vorschau ist davon getrennt. Im Profil findest du auch Export und Abmelden.', Icons.badge_outlined),
+  _GuideStep('Pausen: Timer oder manuell',
+    'Unten auf „Pausen“ tippen. „Pause starten“ beginnt den Timer; „Pause beenden“ speichert das Ende. Der Timer bleibt auch beim Schließen der App erhalten.\n\nMit „Pause manuell eintragen“ Beginn und Ende nachtragen. Über das Datum frühere Tage ansehen. GPS-Erkennung ist noch nicht aktiv.', Icons.pause_circle_outline),
   _GuideStep('Ein Symbol auf dem Handy',
     'iPhone: Den Link in Safari öffnen → Teilen → Zum Home-Bildschirm.\n\nAndroid: Den Link in Chrome öffnen → Dreipunkt-Menü → Installieren oder Zum Startbildschirm hinzufügen.\n\nDanach über das Symbol starten. Für diese Web-Version brauchst du keine APK und keinen App Store.', Icons.add_to_home_screen),
 ];
@@ -119,6 +121,12 @@ class _HelpScreenState extends State<HelpScreen> {
         previewButton('Nummer ändern', icon: Icons.edit_outlined),
         previewLine('Speicherung', 'Cloud'),
         previewButton('Abmelden', icon: Icons.logout),
+      ],
+      7 => <Widget>[
+        previewLine('Pause läuft', '00:20:00'),
+        previewButton('Pause starten', icon: Icons.pause_circle_outline),
+        previewButton('Pause beenden', icon: Icons.stop_circle_outlined),
+        previewButton('Pause manuell eintragen', icon: Icons.edit_calendar_outlined),
       ],
       _ => <Widget>[
         previewButton('Safari → Teilen ↑', icon: Icons.ios_share),

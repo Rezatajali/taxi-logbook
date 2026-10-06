@@ -81,7 +81,12 @@ void main() {
     expect(reloaded.trips, hasLength(1));
     expect(reloaded.trips.single.cents, 3000);
     await reloaded.deleteTrip('1');
-    expect((LogbookStore(prefs)..load()).trips, isEmpty);
+    final archived = (LogbookStore(prefs)..load()).trips.single;
+    expect(archived.deleted, true);
+    expect(archived.history, hasLength(2));
+    expect(archived.history.first['cents'], 2270);
+    expect(TripSummary([archived]).totalCents, 0);
+    expect(() => reviseTrip(archived, trip('1', 4000, DateTime(2026, 10, 1))), throwsStateError);
   });
 
   test('Unreadable saved data is preserved and reported', () async {
@@ -91,3 +96,4 @@ void main() {
     expect(prefs.getString(LogbookStore.storageKey), 'broken json');
   });
 }
+
