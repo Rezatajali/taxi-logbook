@@ -78,13 +78,14 @@ void main() {
     expect(store.trips.single.cents, 2270);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('Entry stays in Schichten and driver number persists in profile', (tester) async {
+  testWidgets('Entry starts in Fahrten and driver number persists in profile', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final store = LogbookStore(prefs)..load();
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    expect(find.text('Fahrt erfassen'), findsNothing);
+    expect(find.text('Home'), findsNothing);
+    expect(find.text('Fahrt erfassen'), findsOneWidget);
     await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();
     expect(find.text('Fahrt erfassen'), findsOneWidget);
@@ -130,3 +131,4 @@ void main() {
   });
 
 }
+

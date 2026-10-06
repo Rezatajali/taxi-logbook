@@ -191,7 +191,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       useSafeArea: true,
       backgroundColor: surface,
       constraints: const BoxConstraints(maxWidth: 640),
-      builder: (_) => TripEditor(store: widget.store, trip: trip, initialDate: tab == 1 ? day : null),
+      builder: (_) => TripEditor(store: widget.store, trip: trip, initialDate: tab == 0 ? day : null),
     );
   }
 
@@ -244,10 +244,9 @@ class _LogbookHomeState extends State<LogbookHome> {
                       Expanded(child: Text(currentWorkWarning!, key: const Key('work-warning'))),
                     ]))),
                   switch (tab) {
-                    0 => todayPage(),
-                    1 => tripsPage(),
-                    2 => PausesPanel(store: widget.store),
-                    3 => monthPage(),
+                    0 => tripsPage(),
+                    1 => PausesPanel(store: widget.store),
+                    2 => monthPage(),
                     _ => settingsPage(),
                   },
                 ]),
@@ -255,7 +254,7 @@ class _LogbookHomeState extends State<LogbookHome> {
               ),
             ),
           ),
-          floatingActionButton: tab != 1
+          floatingActionButton: tab != 0
               ? null
               : FloatingActionButton.extended(
                   onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
@@ -270,8 +269,6 @@ class _LogbookHomeState extends State<LogbookHome> {
             selectedIndex: tab,
             onDestinationSelected: (value) => setState(() => tab = value),
             destinations: const [
-              NavigationDestination(icon: Icon(Icons.space_dashboard_outlined),
-                  selectedIcon: Icon(Icons.space_dashboard), label: 'Home'),
               NavigationDestination(icon: Icon(Icons.local_taxi_outlined),
                   selectedIcon: Icon(Icons.local_taxi), label: 'Fahrten'),
               NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Schichten'),
@@ -360,41 +357,6 @@ class _LogbookHomeState extends State<LogbookHome> {
           ]);
         }),
       );
-
-  Widget todayPage() {
-    final now = DateTime.now();
-    final trips = widget.store.trips.where((t) => sameDay(t.at, now)).toList()
-      ..sort((a, b) => b.at.compareTo(a.at));
-    final summary = TripSummary(trips);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Dein Tag im Überblick', DateFormat('EEEE, d. MMMM', 'de_DE').format(now)),
-      heroCard('Umsatz heute', summary.totalCents, '${TripSummary(trips).trips.length} Fahrten erfasst'),
-      metrics([
-        ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
-        ('Ohne Barzahlung', money(summary.totalCents - summary.cashCents),
-            Icons.credit_card_outlined),
-        ('Erfasste Fahrt-km', km(summary.totalKilometers), Icons.route_outlined),
-        ('Umsatz / Fahrt-km', summary.eurosPerKilometer == null
-            ? '—' : '${euro.format(summary.eurosPerKilometer)} / km',
-            Icons.speed_outlined),
-      ]),
-      if (summary.tripsWithDistance > 0)
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Text('€/km nur aus ${summary.tripsWithDistance} Fahrten mit '
-              'Kilometerangabe. Leerfahrten sind nicht enthalten.',
-              style: const TextStyle(fontSize: 12, color: muted)),
-        ),
-      panel('Zahlungsarten', breakdown({
-        for (final entry in summary.byPayment.entries)
-          entry.key.label: entry.value,
-      }, summary.totalCents)),
-      panel('Letzte Fahrten', trips.isEmpty
-          ? emptyState('Noch keine Fahrt heute.',
-              'Öffne „Fahrten“ und tippe auf „Fahrt erfassen“.')
-          : Column(children: trips.take(5).map(tripTile).toList())),
-    ]);
-  }
 
   Widget emptyState(String heading, String detail) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -495,6 +457,7 @@ class _LogbookHomeState extends State<LogbookHome> {
   }
 
   Widget tripsPage() {
+    final daily = TripSummary(widget.store.trips.where((t) => sameDay(t.at, day)));
     final trips = widget.store.trips.where((t) =>
         sameDay(t.at, day) &&
         (sourceFilter == null || t.source == sourceFilter) &&
@@ -519,6 +482,10 @@ class _LogbookHomeState extends State<LogbookHome> {
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
       ]),
       const SizedBox(height: 12),
+      metrics([
+        ('Tagesumsatz', money(daily.totalCents), Icons.payments_outlined),
+        ('Davon bar', money(daily.cashCents), Icons.account_balance_wallet_outlined),
+      ]),
       DropdownButtonFormField<String>(
         initialValue: sourceFilter ?? '',
         isExpanded: true,

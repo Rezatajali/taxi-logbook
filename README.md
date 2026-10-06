@@ -131,3 +131,7 @@ Compliance-Check und keine Hintergrund-/Push-Alarme. Allgemeine Hinweise beziehe
 sich auf §§ 2–4 ArbZG (https://www.gesetze-im-internet.de/arbzg/); Sonderregelungen,
 Ausgleichszeiträume und Ruhezeiten werden nicht vollständig geprüft. GPS ist noch
 nicht verbunden und startet/beendet keine Schicht automatisch.
+
+## Startseite
+
+Die App öffnet direkt Fahrten. Es gibt vier Ziele: Fahrten, Schichten, Monat und Profil. Ein separates Home entfällt. Die kompakte Tagesübersicht in Fahrten zeigt Tagesumsatz und Bar-Anteil für das ausgewählte Datum, unabhängig von Listenfiltern. Ausführliche Monatsberichte bleiben in Monat.

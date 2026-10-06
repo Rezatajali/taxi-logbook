@@ -10,8 +10,8 @@ class _GuideStep {
 const _steps = [
   _GuideStep('Anmelden oder registrieren',
     'Beim ersten Mal „Registrieren“ wählen. E-Mail, Passwort und Passwort-Wiederholung eingeben. Danach mit E-Mail und Passwort anmelden.\n\nPasswort vergessen? Einen neuen Link anfordern und den neuesten Link in deinem E-Mail-Postfach öffnen.', Icons.login),
-  _GuideStep('Home: Dein Tag auf einen Blick',
-    'Hier siehst du den heutigen Umsatz, die Bar-Einnahmen und deine Fahrten.\n\nZum Erfassen einer neuen Fahrt unten auf „Fahrten“ tippen.', Icons.space_dashboard_outlined),
+  _GuideStep('Fahrten: Dein Tag auf einen Blick',
+    'Die App öffnet direkt „Fahrten“. Oben siehst du den Tagesumsatz und den Bar-Anteil für das ausgewählte Datum.\n\nMit „Fahrt erfassen“ eine neue Fahrt eintragen. Die Filter darunter gelten für die Liste; die Tagesübersicht zeigt weiter den ganzen Tag.', Icons.space_dashboard_outlined),
   _GuideStep('Fahrten: Den Tag auswählen',
     'Mit den Pfeilen den Tag wechseln oder auf das große Datum tippen.\n\n„Fahrt erfassen“ gibt es nur auf dieser Seite. Eine neue Fahrt wird dem ausgewählten Tag zugeordnet.', Icons.calendar_month_outlined),
   _GuideStep('Eine Fahrt erfassen',
