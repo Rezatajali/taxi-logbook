@@ -36,8 +36,10 @@ class _PausesPanelState extends State<PausesPanel> {
     try {
       await widget.store.savePause(pause);
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pause konnte nicht gespeichert werden. Bitte erneut versuchen.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pause konnte nicht gespeichert werden. Bitte erneut versuchen.')));
+      }
     }
   }
 

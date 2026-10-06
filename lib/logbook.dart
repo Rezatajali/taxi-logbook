@@ -175,7 +175,9 @@ Trip reviseTrip(Trip? previous, Trip next, {DateTime? now}) {
   if (previous.deleted) throw StateError('Gelöschte Fahrt kann nicht bearbeitet werden.');
   if (previous.at == next.at && previous.cents == next.cents &&
       previous.source == next.source && previous.payment == next.payment &&
-      previous.kilometers == next.kilometers && previous.note == next.note) return previous;
+      previous.kilometers == next.kilometers && previous.note == next.note) {
+    return previous;
+  }
   final changed = now ?? DateTime.now().toUtc();
   final snapshot = previous.toJson()..remove('history');
   snapshot['action'] = 'Bearbeitet';
