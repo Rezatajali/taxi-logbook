@@ -148,6 +148,15 @@ class _LogbookHomeState extends State<LogbookHome> {
     updateWorkTimer();
   }
   @override
+  void didUpdateWidget(covariant LogbookHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.store, widget.store)) {
+      oldWidget.store.removeListener(updateWorkTimer);
+      widget.store.addListener(updateWorkTimer);
+      updateWorkTimer();
+    }
+  }
+  @override
   void dispose() {
     widget.store.removeListener(updateWorkTimer);
     workTimer?.cancel();
