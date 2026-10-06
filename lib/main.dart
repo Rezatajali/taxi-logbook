@@ -424,7 +424,8 @@ class _LogbookHomeState extends State<LogbookHome> {
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
         Expanded(child: TextButton.icon(
           icon: const Icon(Icons.calendar_today_outlined, size: 18),
-          label: Text(DateFormat('dd.MM.yyyy').format(day)),
+          label: Text(DateFormat('dd.MM.yyyy').format(day),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           onPressed: () async {
             final picked = await showDatePicker(context: context, initialDate: day,
                 firstDate: DateTime(2020), lastDate: DateTime(2100));
@@ -844,7 +845,8 @@ class _TripEditorState extends State<TripEditor> {
             Wrap(spacing: 12, runSpacing: 8, children: [
               OutlinedButton.icon(key: const Key('trip-date'),
                 icon: const Icon(Icons.calendar_today_outlined),
-                label: Text(DateFormat('dd.MM.yyyy').format(at)),
+                label: Text(DateFormat('dd.MM.yyyy').format(at),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                 onPressed: busy ? null : () async {
                   FocusManager.instance.primaryFocus?.unfocus();
                   final date = await showDatePicker(context: context,
