@@ -89,6 +89,40 @@ void main() {
     expect(() => reviseTrip(archived, trip('1', 4000, DateTime(2026, 10, 1))), throwsStateError);
   });
 
+  test('Tips round-trip, preserve legacy fares and stay separate from revenue', () {
+    final original = Trip(id: 'tip', at: DateTime(2026, 10, 7), cents: 2270,
+      tipCents: 200, source: 'Taxi', payment: PaymentMethod.cash, kilometers: 10);
+    expect(Trip.fromJson(original.toJson()).tipCents, 200);
+    final legacy = original.toJson()..remove('tipCents');
+    expect(Trip.fromJson(legacy).tipCents, 0);
+    expect(() => Trip.fromJson({...legacy, 'tipCents': -1}), throwsFormatException);
+    final summary = TripSummary([original]);
+    expect(summary.totalCents, 2270);
+    expect(summary.cashCents, 2270);
+    expect(summary.tipCents, 200);
+    expect(summary.receivedCents, 2470);
+    expect(summary.eurosPerKilometer, 2.27);
+    final edited = reviseTrip(original, Trip.fromJson({...original.toJson(), 'tipCents': 300}));
+    expect(edited.history.single['tipCents'], 200);
+    expect(edited.tipCents, 300);
+    expect(TripSummary([markTripDeleted(edited)]).tipCents, 0);
+  });
+
+  test('Tips survive storage reload and edits', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final store = LogbookStore(prefs)..load();
+    final fare = Trip(id: 'tip', at: DateTime(2026, 10, 7), cents: 2270,
+      tipCents: 200, source: 'Taxi', payment: PaymentMethod.cash);
+    await store.saveTrip(fare);
+    final reloaded = LogbookStore(prefs)..load();
+    expect(reloaded.trips.single.tipCents, 200);
+    await reloaded.saveTrip(Trip.fromJson({...fare.toJson(), 'tipCents': 300}));
+    final saved = (LogbookStore(prefs)..load()).trips.single;
+    expect(saved.tipCents, 300);
+    expect(saved.history.single['tipCents'], 200);
+  });
+
   test('Unreadable saved data is preserved and reported', () async {
     SharedPreferences.setMockInitialValues({LogbookStore.storageKey: 'broken json'});
     final prefs = await SharedPreferences.getInstance();

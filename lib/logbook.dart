@@ -53,6 +53,7 @@ class Trip {
     required this.cents,
     required this.source,
     required this.payment,
+    this.tipCents = 0,
     this.kilometers,
     this.note = '',
     this.editedAt,
@@ -63,6 +64,7 @@ class Trip {
   final String id;
   final DateTime at;
   final int cents;
+  final int tipCents;
   final String source;
   final PaymentMethod payment;
   final double? kilometers;
@@ -76,6 +78,7 @@ class Trip {
         'id': id,
         'at': at.toIso8601String(),
         'cents': cents,
+        'tipCents': tipCents,
         'source': source,
         'payment': payment.name,
         'kilometers': kilometers,
@@ -87,8 +90,9 @@ class Trip {
 
   factory Trip.fromJson(Map<String, dynamic> json) {
     final cents = json['cents'] as int;
+    final tipCents = json['tipCents'] as int? ?? 0;
     final kilometers = (json['kilometers'] as num?)?.toDouble();
-    if (cents <= 0 ||
+    if (cents <= 0 || tipCents < 0 || tipCents > 99999999 ||
         (kilometers != null &&
             (!kilometers.isFinite || kilometers <= 0 || kilometers > 10000))) {
       throw const FormatException('Ungültige Fahrtdaten.');
@@ -97,6 +101,7 @@ class Trip {
       id: json['id'] as String,
       at: DateTime.parse(json['at'] as String),
       cents: cents,
+      tipCents: tipCents,
       source: json['source'] as String,
       payment: PaymentMethod.values.byName(json['payment'] as String),
       kilometers: kilometers,
@@ -120,6 +125,8 @@ class TripSummary {
   final List<Trip> trips;
 
   int get totalCents => trips.fold(0, (sum, trip) => sum + trip.cents);
+  int get tipCents => trips.fold(0, (sum, trip) => sum + trip.tipCents);
+  int get receivedCents => totalCents + tipCents;
   int get cashCents => trips
       .where((t) => t.payment == PaymentMethod.cash)
       .fold(0, (sum, trip) => sum + trip.cents);
@@ -173,7 +180,7 @@ class TripSummary {
 Trip reviseTrip(Trip? previous, Trip next, {DateTime? now}) {
   if (previous == null) return next;
   if (previous.deleted) throw StateError('Gelöschte Fahrt kann nicht bearbeitet werden.');
-  if (previous.at == next.at && previous.cents == next.cents &&
+  if (previous.at == next.at && previous.cents == next.cents && previous.tipCents == next.tipCents &&
       previous.source == next.source && previous.payment == next.payment &&
       previous.kilometers == next.kilometers && previous.note == next.note) {
     return previous;

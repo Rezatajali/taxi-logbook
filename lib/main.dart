@@ -416,6 +416,7 @@ class _LogbookHomeState extends State<LogbookHome> {
             Text('Vorher: ${money(entry['cents'] as int)} · ${entry['source']} · '
               '${PaymentMethod.values.byName(entry['payment'] as String).label}'),
             Text('Fahrt: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.parse(entry['at'] as String))}'),
+            Text('Trinkgeld: ${money(entry['tipCents'] as int? ?? 0)}'),
             if (entry['kilometers'] != null) Text('Strecke: ${entry['kilometers']} km'),
             if ((entry['note'] as String? ?? '').isNotEmpty) Text('Notiz: ${entry['note']}'),
           ])),
@@ -430,7 +431,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       ListTile(contentPadding: EdgeInsets.zero,
         title: Text(widget.store.driverLabel, style: style),
         subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · ${trip.source} · '
-          '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
+          '${trip.payment.label}${trip.tipCents == 0 ? '' : ' · Trinkgeld ${money(trip.tipCents)}'}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
           style: TextStyle(color: trip.deleted ? color : null,
             decoration: trip.deleted ? TextDecoration.lineThrough : null)),
         trailing: Text(money(trip.cents), style: style),
@@ -485,6 +486,8 @@ class _LogbookHomeState extends State<LogbookHome> {
       metrics([
         ('Tagesumsatz', money(daily.totalCents), Icons.payments_outlined),
         ('Davon bar', money(daily.cashCents), Icons.account_balance_wallet_outlined),
+        ('Trinkgeld', money(daily.tipCents), Icons.volunteer_activism_outlined),
+        ('Mit Trinkgeld', money(daily.receivedCents), Icons.savings_outlined),
       ]),
       DropdownButtonFormField<String>(
         initialValue: sourceFilter ?? '',
@@ -536,6 +539,8 @@ class _LogbookHomeState extends State<LogbookHome> {
       metrics([
         ('Ø Tag mit Fahrten', money(summary.averageWorkingDayCents), Icons.trending_up),
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
+        ('Trinkgeld', money(summary.tipCents), Icons.volunteer_activism_outlined),
+        ('Mit Trinkgeld', money(summary.receivedCents), Icons.savings_outlined),
       ]),
       panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
@@ -763,6 +768,7 @@ class TripEditor extends StatefulWidget {
 class _TripEditorState extends State<TripEditor> {
   final form = GlobalKey<FormState>();
   late final TextEditingController amount;
+  late final TextEditingController tip;
   late final TextEditingController distance;
   late final TextEditingController note;
   late DateTime at;
@@ -807,6 +813,8 @@ class _TripEditorState extends State<TripEditor> {
     tripId = trip?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     amount = TextEditingController(text: trip == null ? ''
         : (trip.cents / 100).toStringAsFixed(2).replaceAll('.', ','));
+    tip = TextEditingController(text: trip == null || trip.tipCents == 0 ? ''
+        : (trip.tipCents / 100).toStringAsFixed(2).replaceAll('.', ','));
     distance = TextEditingController(text: trip?.kilometers == null ? ''
         : trip!.kilometers.toString().replaceAll('.', ','));
     note = TextEditingController(text: trip?.note ?? '');
@@ -820,6 +828,7 @@ class _TripEditorState extends State<TripEditor> {
   @override
   void dispose() {
     amount.dispose();
+    tip.dispose();
     distance.dispose();
     note.dispose();
     super.dispose();
@@ -833,6 +842,7 @@ class _TripEditorState extends State<TripEditor> {
         id: tripId,
         at: at,
         cents: parseCents(amount.text)!,
+        tipCents: tip.text.trim().isEmpty || tip.text == '0,00' ? 0 : parseCents(tip.text)!,
         source: source,
         payment: payment,
         kilometers: parseKilometers(distance.text),
@@ -916,6 +926,16 @@ class _TripEditorState extends State<TripEditor> {
                 ),
               )),
             ]),
+            const SizedBox(height: 16),
+            TextFormField(
+              key: const Key('tip-amount'), controller: tip, enabled: !busy,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [CentsInputFormatter()],
+              decoration: const InputDecoration(labelText: 'Trinkgeld (optional)',
+                suffixText: '€', hintText: '0,00', helperText: 'Zusätzlich zum Fahrpreis; separat ausgewertet.'),
+              validator: (v) => (v ?? '').trim().isEmpty || v == '0,00' || parseCents(v!) != null
+                ? null : 'Bitte ein gültiges Trinkgeld eingeben.',
+            ),
             const SizedBox(height: 16),
             Wrap(spacing: 12, runSpacing: 8, children: [
               OutlinedButton.icon(key: const Key('trip-date'),
