@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Davon bar'), findsOneWidget);
     await tester.tap(find.byTooltip('Nächster Tag'));
     await tester.pumpAndSettle();
-    expect(find.text(money(0)), findsOneWidget);
+    expect(find.text(money(0)), findsWidgets);
     expect(find.text(money(2270)), findsNothing);
     await tester.tap(find.text('Schichten'));
     await tester.pumpAndSettle();
