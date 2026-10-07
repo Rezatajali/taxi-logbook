@@ -20,12 +20,12 @@ import 'help_screen.dart';
 import 'pause_screen.dart';
 import 'shifts.dart';
 
-const ink = Color(0xFFECECF4);
+const ink = Color(0xFFF1F5F9);
 const accent = Color(0xFFF3C45D);
-const canvas = Color(0xFF121126);
-const surface = Color(0xFF232238);
-const primary = Color(0xFF00C99A);
-const muted = Color(0xFFABAABE);
+const canvas = Color(0xFF0B1220);
+const surface = Color(0xFF152236);
+const primary = Color(0xFF35D7AF);
+const muted = Color(0xFF9AAAC0);
 final euro = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 String money(num cents) => euro.format(cents / 100);
 String km(double value) => NumberFormat('0.0', 'de_DE').format(value);
@@ -92,6 +92,19 @@ class LogbookApp extends StatelessWidget {
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: primary, brightness: Brightness.dark),
           scaffoldBackgroundColor: canvas,
+          textTheme: const TextTheme(
+            bodyMedium: TextStyle(fontSize: 15, height: 1.45),
+            bodyLarge: TextStyle(fontSize: 16, height: 1.45),
+          ),
+          cardTheme: CardThemeData(color: surface, elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+          outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
+            foregroundColor: ink, minimumSize: const Size(0, 48),
+            side: const BorderSide(color: Color(0xFF38516B)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
+          navigationBarTheme: NavigationBarThemeData(
+            height: 76, labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+              fontSize: 12, fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w500))),
           appBarTheme: const AppBarTheme(
             backgroundColor: canvas,
             foregroundColor: ink,
@@ -99,7 +112,8 @@ class LogbookApp extends StatelessWidget {
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
-            fillColor: canvas,
+            fillColor: const Color(0xFF0F1B2C),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -201,7 +215,9 @@ class _LogbookHomeState extends State<LogbookHome> {
         builder: (context, _) => Scaffold(
           appBar: AppBar(
             title: Row(children: [
-              const Icon(Icons.local_taxi_rounded, color: ink),
+              Container(padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(color: primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.local_taxi_rounded, color: primary, size: 22)),
               const SizedBox(width: 10),
               Expanded(child: Text(widget.store.driverNumber.isEmpty ? 'Taxi Logbuch' : widget.store.driverLabel, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800))),
@@ -210,15 +226,6 @@ class _LogbookHomeState extends State<LogbookHome> {
               IconButton(tooltip: 'Hilfe · Anleitung', icon: const Icon(Icons.help_outline),
                 onPressed: () => Navigator.push(context,
                   MaterialPageRoute<void>(builder: (_) => const HelpScreen()))),
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: Chip(
-                  avatar: const Icon(Icons.phone_android, size: 16),
-                  label: Text(widget.store.storageLabel),
-                  side: BorderSide.none,
-                  backgroundColor: surface,
-                ),
-              ),
             ],
           ),
           body: SafeArea(
@@ -258,14 +265,14 @@ class _LogbookHomeState extends State<LogbookHome> {
               ? null
               : FloatingActionButton.extended(
                   onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
-                  backgroundColor: accent,
+                  backgroundColor: primary,
                   foregroundColor: canvas,
                   icon: const Icon(Icons.add),
                   label: const Text('Fahrt erfassen'),
                 ),
           bottomNavigationBar: NavigationBar(
             backgroundColor: surface,
-            indicatorColor: accent.withValues(alpha: 0.18),
+            indicatorColor: primary.withValues(alpha: 0.18),
             selectedIndex: tab,
             onDestinationSelected: (value) => setState(() => tab = value),
             destinations: const [
@@ -293,7 +300,9 @@ class _LogbookHomeState extends State<LogbookHome> {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: surface,
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [Color(0xFF174B47), Color(0xFF152D40)]),
+          border: Border.all(color: primary.withValues(alpha: 0.22)),
           borderRadius: BorderRadius.circular(24),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -305,7 +314,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                 color: Colors.white, fontSize: 42, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(height: 12),
-          Text(detail, style: const TextStyle(color: accent)),
+          Text(detail, style: const TextStyle(color: primary)),
           const SizedBox(height: 8),
           const Text('Umsatz vor Kosten und Provisionen',
               style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -319,7 +328,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         decoration: BoxDecoration(
           color: surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF38374E)),
+          border: Border.all(color: const Color(0xFF293B50)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(heading, style: const TextStyle(
@@ -345,7 +354,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Icon(value.$3, color: ink, size: 22),
+                  Icon(value.$3, color: primary, size: 22),
                   const SizedBox(height: 12),
                   Text(value.$2, style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
@@ -416,7 +425,6 @@ class _LogbookHomeState extends State<LogbookHome> {
             Text('Vorher: ${money(entry['cents'] as int)} · ${entry['source']} · '
               '${PaymentMethod.values.byName(entry['payment'] as String).label}'),
             Text('Fahrt: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.parse(entry['at'] as String))}'),
-            Text('Trinkgeld: ${money(entry['tipCents'] as int? ?? 0)}'),
             if (entry['kilometers'] != null) Text('Strecke: ${entry['kilometers']} km'),
             if ((entry['note'] as String? ?? '').isNotEmpty) Text('Notiz: ${entry['note']}'),
           ])),
@@ -427,14 +435,20 @@ class _LogbookHomeState extends State<LogbookHome> {
     final style = TextStyle(fontWeight: FontWeight.w800, color: color,
       decoration: trip.deleted ? TextDecoration.lineThrough : null);
     final editable = !trip.deleted && widget.store.ready && !widget.store.saving;
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Column(children: [
+    return Container(margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(color: const Color(0xFF102033),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: trip.deleted || trip.editedAt != null
+          ? color.withValues(alpha: 0.45) : const Color(0xFF293B50))),
+      child: Column(children: [
       ListTile(contentPadding: EdgeInsets.zero,
         title: Text(widget.store.driverLabel, style: style),
         subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · ${trip.source} · '
-          '${trip.payment.label}${trip.tipCents == 0 ? '' : ' · Trinkgeld ${money(trip.tipCents)}'}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
+          '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
           style: TextStyle(color: trip.deleted ? color : null,
             decoration: trip.deleted ? TextDecoration.lineThrough : null)),
-        trailing: Text(money(trip.cents), style: style),
+        trailing: Text(money(trip.cents), style: style.copyWith(fontSize: 22)),
         onTap: editable ? () => editTrip(trip) : null),
       if (trip.deleted || trip.editedAt != null) Align(alignment: Alignment.centerLeft,
         child: Text(trip.deleted ? 'Gelöscht · nicht im Umsatz' : 'Bearbeitet',
@@ -453,7 +467,6 @@ class _LogbookHomeState extends State<LogbookHome> {
       if (trip.history.isNotEmpty) Align(alignment: Alignment.centerLeft,
         child: TextButton.icon(onPressed: () => showHistory(trip),
           icon: const Icon(Icons.history, size: 18), label: const Text('Änderungsverlauf'))),
-      const Divider(),
     ]));
   }
 
@@ -465,8 +478,10 @@ class _LogbookHomeState extends State<LogbookHome> {
         (paymentFilter == null || t.payment == paymentFilter)).toList()
       ..sort((a, b) => b.at.compareTo(a.at));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Deine Fahrten', 'Fahrten deiner Tagesschicht erfassen und bearbeiten.'),
-      Row(children: [
+      title('Deine Fahrten', 'Dein Tag. Jede Fahrt im Blick.'),
+      Container(padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(18)),
+        child: Row(children: [
         IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
         Expanded(child: TextButton.icon(
@@ -481,15 +496,27 @@ class _LogbookHomeState extends State<LogbookHome> {
         )),
         IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
-      ]),
+      ])),
       const SizedBox(height: 12),
       metrics([
         ('Tagesumsatz', money(daily.totalCents), Icons.payments_outlined),
         ('Davon bar', money(daily.cashCents), Icons.account_balance_wallet_outlined),
-        ('Trinkgeld', money(daily.tipCents), Icons.volunteer_activism_outlined),
-        ('Mit Trinkgeld', money(daily.receivedCents), Icons.savings_outlined),
       ]),
+      const SizedBox(height: 16),
+      Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(key: const Key('fare-filters'),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          collapsedBackgroundColor: surface, backgroundColor: surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          leading: const Icon(Icons.tune_rounded, color: primary),
+          title: const Text('Filter', style: TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(sourceFilter == null && paymentFilter == null
+            ? 'Alle Quellen und Zahlungen' : '${sourceFilter ?? 'Alle Quellen'} · ${paymentFilter?.label ?? 'Alle Zahlungen'}'),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          children: [
       DropdownButtonFormField<String>(
+        key: ValueKey('source-filter-$sourceFilter'),
         initialValue: sourceFilter ?? '',
         isExpanded: true,
         decoration: const InputDecoration(labelText: 'Quelle filtern'),
@@ -508,10 +535,20 @@ class _LogbookHomeState extends State<LogbookHome> {
           ChoiceChip(label: Text(method.label), selected: paymentFilter == method,
               onSelected: (_) => setState(() => paymentFilter = method)),
       ]),
-      panel('${TripSummary(trips).trips.length} Fahrten · ${money(TripSummary(trips).totalCents)}',
+            if (sourceFilter != null || paymentFilter != null) TextButton.icon(
+              onPressed: () => setState(() { sourceFilter = null; paymentFilter = null; }),
+              icon: const Icon(Icons.restart_alt), label: const Text('Filter zurücksetzen')),
+          ])),
+      const SizedBox(height: 24),
+      Row(children: [
+        Expanded(child: Text('${TripSummary(trips).trips.length} Fahrten',
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
+        Text(money(TripSummary(trips).totalCents), style: const TextStyle(color: muted)),
+      ]),
+      const SizedBox(height: 14),
           trips.isEmpty
             ? emptyState('Keine passenden Fahrten.', 'Wähle einen anderen Tag oder erfasse eine Fahrt.')
-            : Column(children: trips.map(tripTile).toList())),
+            : Column(children: trips.map(tripTile).toList()),
     ]);
   }
 
@@ -539,8 +576,6 @@ class _LogbookHomeState extends State<LogbookHome> {
       metrics([
         ('Ø Tag mit Fahrten', money(summary.averageWorkingDayCents), Icons.trending_up),
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
-        ('Trinkgeld', money(summary.tipCents), Icons.volunteer_activism_outlined),
-        ('Mit Trinkgeld', money(summary.receivedCents), Icons.savings_outlined),
       ]),
       panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
@@ -649,6 +684,8 @@ class _LogbookHomeState extends State<LogbookHome> {
               ? null : widget.onExit, icon: const Icon(Icons.logout),
               label: Text(widget.store.isCloud ? 'Abmelden' : 'Zur Anmeldung')),
           ])),
+        Padding(padding: const EdgeInsets.only(top: 16), child: Chip(
+          avatar: const Icon(Icons.cloud_done_outlined, size: 18), label: Text(widget.store.storageLabel))),
         panel(widget.store.isCloud ? 'Cloud-Speicherung' : 'Speicherung auf diesem Gerät',
           Text(widget.store.isCloud
             ? 'Jede Fahrt wird separat in deinem Konto gespeichert. Mit derselben '
@@ -737,7 +774,7 @@ class _DailyChartState extends State<DailyChart> {
                             ? 3 : (widget.values[i] / maximum * 145).clamp(3, 145).toDouble(),
                         decoration: BoxDecoration(
                           color: selected == i ? accent : widget.values[i] == 0
-                              ? const Color(0xFF38374E) : primary,
+                              ? const Color(0xFF293B50) : primary,
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
@@ -768,7 +805,6 @@ class TripEditor extends StatefulWidget {
 class _TripEditorState extends State<TripEditor> {
   final form = GlobalKey<FormState>();
   late final TextEditingController amount;
-  late final TextEditingController tip;
   late final TextEditingController distance;
   late final TextEditingController note;
   late DateTime at;
@@ -813,8 +849,6 @@ class _TripEditorState extends State<TripEditor> {
     tripId = trip?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     amount = TextEditingController(text: trip == null ? ''
         : (trip.cents / 100).toStringAsFixed(2).replaceAll('.', ','));
-    tip = TextEditingController(text: trip == null || trip.tipCents == 0 ? ''
-        : (trip.tipCents / 100).toStringAsFixed(2).replaceAll('.', ','));
     distance = TextEditingController(text: trip?.kilometers == null ? ''
         : trip!.kilometers.toString().replaceAll('.', ','));
     note = TextEditingController(text: trip?.note ?? '');
@@ -828,7 +862,6 @@ class _TripEditorState extends State<TripEditor> {
   @override
   void dispose() {
     amount.dispose();
-    tip.dispose();
     distance.dispose();
     note.dispose();
     super.dispose();
@@ -842,7 +875,7 @@ class _TripEditorState extends State<TripEditor> {
         id: tripId,
         at: at,
         cents: parseCents(amount.text)!,
-        tipCents: tip.text.trim().isEmpty || tip.text == '0,00' ? 0 : parseCents(tip.text)!,
+        tipCents: widget.trip?.tipCents ?? 0,
         source: source,
         payment: payment,
         kilometers: parseKilometers(distance.text),
@@ -926,16 +959,6 @@ class _TripEditorState extends State<TripEditor> {
                 ),
               )),
             ]),
-            const SizedBox(height: 16),
-            TextFormField(
-              key: const Key('tip-amount'), controller: tip, enabled: !busy,
-              keyboardType: TextInputType.number,
-              inputFormatters: const [CentsInputFormatter()],
-              decoration: const InputDecoration(labelText: 'Trinkgeld (optional)',
-                suffixText: '€', hintText: '0,00', helperText: 'Zusätzlich zum Fahrpreis; separat ausgewertet.'),
-              validator: (v) => (v ?? '').trim().isEmpty || v == '0,00' || parseCents(v!) != null
-                ? null : 'Bitte ein gültiges Trinkgeld eingeben.',
-            ),
             const SizedBox(height: 16),
             Wrap(spacing: 12, runSpacing: 8, children: [
               OutlinedButton.icon(key: const Key('trip-date'),

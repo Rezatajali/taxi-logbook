@@ -144,14 +144,19 @@ class _LoginScreenState extends State<LoginScreen> {
         child: AutofillGroup(child: Form(key: form, child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.local_taxi_rounded, size: 52),
+            Center(child: Container(width: 80, height: 80,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25))),
+              child: Icon(Icons.local_taxi_rounded, size: 40, color: Theme.of(context).colorScheme.primary))),
             const SizedBox(height: 20),
             Text(reset ? 'Passwort zurücksetzen' : register ? 'Konto erstellen' : 'Taxi Logbuch',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8)),
             const SizedBox(height: 12),
             Text(reset ? 'Wir senden dir einen Link per E-Mail.'
-              : 'Deine Fahrten. Dein Konto. Auf deinen Geräten.', textAlign: TextAlign.center),
+              : 'Fahrten erfassen. Schichten planen.\nDeinen Umsatz im Blick behalten.', textAlign: TextAlign.center),
             const SizedBox(height: 28),
             TextFormField(key: const Key('auth-email'), controller: email,
               enabled: !busy, keyboardType: TextInputType.emailAddress,

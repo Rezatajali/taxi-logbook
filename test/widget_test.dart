@@ -20,12 +20,10 @@ void main() {
     await tester.tap(find.text('Fahrt erfassen'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('amount')), '2270');
-    await tester.enterText(find.byKey(const Key('tip-amount')), '200');
     await tester.ensureVisible(find.text('Fahrt speichern'));
     await tester.tap(find.text('Fahrt speichern'));
     await tester.pumpAndSettle();
     expect(store.trips.single.cents, 2270);
-    expect(store.trips.single.tipCents, 200);
     expect(store.trips.single.kilometers, isNull);
     expect(tester.takeException(), isNull);
 
@@ -35,15 +33,12 @@ void main() {
     await tester.tap(find.byKey(ValueKey('edit-${store.trips.single.id}')));
     await tester.pumpAndSettle();
     expect(find.text('Fahrt bearbeiten'), findsOneWidget);
-    expect(find.text('2,00'), findsOneWidget);
+    expect(find.text('Trinkgeld (optional)'), findsNothing);
     await tester.enterText(find.byKey(const Key('amount')), '30,00');
-    await tester.enterText(find.byKey(const Key('tip-amount')), '300');
     await tester.ensureVisible(find.text('Fahrt speichern'));
     await tester.tap(find.text('Fahrt speichern'));
     await tester.pumpAndSettle();
     expect(store.trips.single.cents, 3000);
-    expect(store.trips.single.tipCents, 300);
-    expect(store.trips.single.history.single['tipCents'], 200);
     expect(store.trips, hasLength(1));
     await tester.tap(find.text('Monat'));
     await tester.pumpAndSettle();
