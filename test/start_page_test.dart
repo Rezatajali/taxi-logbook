@@ -29,7 +29,7 @@ void main() {
     expect(find.text(money(0)), findsWidgets);
     expect(find.text(money(2270)), findsNothing);
     expect(find.text('Quelle filtern'), findsNothing);
-    await tester.tap(find.byKey(const Key('fare-filters')));
+    await tester.tap(find.text('Filter'));
     await tester.pumpAndSettle();
     expect(find.text('Quelle filtern'), findsOneWidget);
     await tester.ensureVisible(find.text('Karte'));
@@ -40,8 +40,8 @@ void main() {
     await tester.ensureVisible(find.text('Filter zurücksetzen'));
     await tester.tap(find.text('Filter zurücksetzen'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('fare-filters')));
-    await tester.tap(find.byKey(const Key('fare-filters')));
+    await tester.ensureVisible(find.text('Filter'));
+    await tester.tap(find.text('Filter'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Schichten'));
     await tester.pumpAndSettle();
