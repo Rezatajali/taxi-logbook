@@ -27,6 +27,7 @@ void main() {
     await tester.tap(find.byKey(const Key('fare-filters')));
     await tester.pumpAndSettle();
     expect(find.text('Quelle filtern'), findsOneWidget);
+    await tester.ensureVisible(find.text('Karte'));
     await tester.tap(find.text('Karte'));
     await tester.pumpAndSettle();
     expect(find.text('Keine passenden Fahrten.'), findsOneWidget);
@@ -37,6 +38,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('fare-filters')));
     await tester.tap(find.byKey(const Key('fare-filters')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Nächster Tag'));
     await tester.tap(find.byTooltip('Nächster Tag'));
     await tester.pumpAndSettle();
     expect(find.text(money(0)), findsWidgets);
