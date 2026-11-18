@@ -18,6 +18,8 @@ import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
 import 'pause_screen.dart';
+import 'pdf_report.dart';
+import 'package:printing/printing.dart';
 import 'shifts.dart';
 
 const ink = Color(0xFFF1F5F9);
@@ -194,6 +196,22 @@ class _LogbookHomeState extends State<LogbookHome> {
   DateTime day = DateUtils.dateOnly(DateTime.now());
   String? sourceFilter;
   PaymentMethod? paymentFilter;
+
+  bool exportingPdf = false;
+
+  Future<void> exportMonthPdf() async {
+    setState(() => exportingPdf = true);
+    try {
+      final bytes = await buildMonthReport(trips: widget.store.trips,
+        shifts: widget.store.shifts, month: month, driverLabel: widget.store.driverLabel);
+      await Printing.sharePdf(bytes: bytes,
+        filename: 'taxi-logbuch-${DateFormat('yyyy-MM').format(month)}.pdf');
+    } catch (_) {
+      if (mounted) message('PDF konnte nicht erstellt werden.');
+    } finally {
+      if (mounted) setState(() => exportingPdf = false);
+    }
+  }
 
   void message(String text) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: Text(text)));
@@ -447,7 +465,8 @@ class _LogbookHomeState extends State<LogbookHome> {
       child: Column(children: [
       ListTile(contentPadding: EdgeInsets.zero,
         title: Text(widget.store.driverLabel, style: style),
-        subtitle: Text('${DateFormat('HH:mm').format(trip.at)} · ${trip.source} · '
+        // Fares after midnight belong to the shift day; show their real date.
+        subtitle: Text('${DateFormat(sameDay(trip.at, day) ? 'HH:mm' : 'dd.MM. HH:mm').format(trip.at)} · ${trip.source} · '
           '${trip.payment.label}${trip.kilometers == null ? '' : ' · ${km(trip.kilometers!)} km'}',
           style: TextStyle(color: trip.deleted ? color : null,
             decoration: trip.deleted ? TextDecoration.lineThrough : null)),
@@ -474,9 +493,10 @@ class _LogbookHomeState extends State<LogbookHome> {
   }
 
   Widget tripsPage() {
-    final daily = TripSummary(widget.store.trips.where((t) => sameDay(t.at, day)));
-    final trips = widget.store.trips.where((t) =>
-        sameDay(t.at, day) &&
+    final shifts = widget.store.shifts;
+    final dayTrips = tripsOnDay(widget.store.trips, day, shifts);
+    final daily = TripSummary(dayTrips, shifts: shifts);
+    final trips = dayTrips.where((t) =>
         (sourceFilter == null || t.source == sourceFilter) &&
         (paymentFilter == null || t.payment == paymentFilter)).toList()
       ..sort((a, b) => b.at.compareTo(a.at));
@@ -557,7 +577,8 @@ class _LogbookHomeState extends State<LogbookHome> {
   }
 
   Widget monthPage() {
-    final summary = TripSummary(tripsInMonth(widget.store.trips, month));
+    final summary = TripSummary(tripsInMonth(widget.store.trips, month, widget.store.shifts),
+        shifts: widget.store.shifts);
     final now = DateTime.now();
     final times = workTotals(widget.store.shifts, widget.store.pauses,
       DateTime(month.year, month.month), DateTime(month.year, month.month + 1), now);
@@ -582,6 +603,12 @@ class _LogbookHomeState extends State<LogbookHome> {
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
         ('Uber Bar', money(summary.uberCashCents), Icons.local_taxi_outlined),
       ]),
+      const SizedBox(height: 16),
+      SizedBox(width: double.infinity, child: FilledButton.icon(
+        key: const Key('month-pdf'),
+        onPressed: exportingPdf ? null : exportMonthPdf,
+        icon: const Icon(Icons.picture_as_pdf_outlined),
+        label: const Text('Monatsbericht als PDF'))),
       panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
         else ...[

@@ -1,3 +1,5 @@
+import 'shifts.dart';
+
 enum PaymentMethod {
   cash('Bar'),
   card('Karte'),
@@ -117,13 +119,42 @@ class Trip {
 bool sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-List<Trip> tripsInMonth(Iterable<Trip> trips, DateTime month) => trips
-    .where((t) => t.at.year == month.year && t.at.month == month.month)
-    .toList();
+/// A forgotten running shift must not pull fares of later days into it.
+const maxOpenShift = Duration(hours: 24);
+
+/// The working day a fare belongs to: the local start day of the shift that
+/// contains it. A fare at 01:00 in a shift that started at 17:00 counts for the
+/// evening before. Fares outside any shift use their own calendar day.
+DateTime workDayOf(DateTime at, Iterable<ShiftRecord> shifts) {
+  for (final shift in shifts) {
+    final end = shift.end ?? shift.start.add(maxOpenShift);
+    if (!at.isBefore(shift.start) && !at.isAfter(end)) {
+      final start = shift.start.toLocal();
+      return DateTime(start.year, start.month, start.day);
+    }
+  }
+  final local = at.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+List<Trip> tripsOnDay(Iterable<Trip> trips, DateTime day,
+    [Iterable<ShiftRecord> shifts = const []]) =>
+    trips.where((t) => sameDay(workDayOf(t.at, shifts), day)).toList();
+
+List<Trip> tripsInMonth(Iterable<Trip> trips, DateTime month,
+    [Iterable<ShiftRecord> shifts = const []]) => trips.where((t) {
+      final day = workDayOf(t.at, shifts);
+      return day.year == month.year && day.month == month.month;
+    }).toList();
 
 class TripSummary {
-  TripSummary(Iterable<Trip> input) : trips = List.unmodifiable(input.where((trip) => !trip.deleted));
+  TripSummary(Iterable<Trip> input, {Iterable<ShiftRecord> shifts = const []})
+      : trips = List.unmodifiable(input.where((trip) => !trip.deleted)),
+        shifts = List.unmodifiable(shifts);
   final List<Trip> trips;
+  /// Used to count fares after midnight for the day their shift started.
+  final List<ShiftRecord> shifts;
+  DateTime dayOf(Trip trip) => workDayOf(trip.at, shifts);
 
   int get totalCents => trips.fold(0, (sum, trip) => sum + trip.cents);
   int get tipCents => trips.fold(0, (sum, trip) => sum + trip.tipCents);
@@ -146,7 +177,7 @@ class TripSummary {
           if (method != PaymentMethod.cash) method.label: byPayment[method]!,
       };
   int get workingDays => trips
-      .map((t) => DateTime(t.at.year, t.at.month, t.at.day))
+      .map(dayOf)
       .toSet()
       .length;
   double get averageWorkingDayCents =>
@@ -183,8 +214,8 @@ class TripSummary {
 
   List<int> dailyCents(DateTime month) {
     final days = List<int>.filled(DateTime(month.year, month.month + 1, 0).day, 0);
-    for (final trip in tripsInMonth(trips, month)) {
-      days[trip.at.day - 1] += trip.cents;
+    for (final trip in tripsInMonth(trips, month, shifts)) {
+      days[dayOf(trip).day - 1] += trip.cents;
     }
     return days;
   }
