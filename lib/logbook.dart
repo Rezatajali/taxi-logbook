@@ -128,9 +128,23 @@ class TripSummary {
   int get totalCents => trips.fold(0, (sum, trip) => sum + trip.cents);
   int get tipCents => trips.fold(0, (sum, trip) => sum + trip.tipCents);
   int get receivedCents => totalCents + tipCents;
+  static bool _isUberCash(Trip t) =>
+      t.payment == PaymentMethod.cash && t.source == 'Uber';
+  /// Cash fares without Uber cash ("Uber Bar" is reported on its own).
   int get cashCents => trips
-      .where((t) => t.payment == PaymentMethod.cash)
+      .where((t) => t.payment == PaymentMethod.cash && !_isUberCash(t))
       .fold(0, (sum, trip) => sum + trip.cents);
+  int get uberCashCents => trips
+      .where(_isUberCash)
+      .fold(0, (sum, trip) => sum + trip.cents);
+
+  /// Payment breakdown for reports: "Bar" and "Uber Bar" are separate rows.
+  Map<String, int> get paymentBreakdown => {
+        PaymentMethod.cash.label: cashCents,
+        'Uber Bar': uberCashCents,
+        for (final method in PaymentMethod.values)
+          if (method != PaymentMethod.cash) method.label: byPayment[method]!,
+      };
   int get workingDays => trips
       .map((t) => DateTime(t.at.year, t.at.month, t.at.day))
       .toSet()

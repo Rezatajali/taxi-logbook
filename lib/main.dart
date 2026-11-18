@@ -504,6 +504,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       metrics([
         ('Tagesumsatz', money(daily.totalCents), Icons.payments_outlined),
         ('Davon bar', money(daily.cashCents), Icons.account_balance_wallet_outlined),
+        ('Uber Bar', money(daily.uberCashCents), Icons.local_taxi_outlined),
       ]),
       const SizedBox(height: 16),
       Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -579,6 +580,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       metrics([
         ('Ø Tag mit Fahrten', money(summary.averageWorkingDayCents), Icons.trending_up),
         ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
+        ('Uber Bar', money(summary.uberCashCents), Icons.local_taxi_outlined),
       ]),
       panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
@@ -599,10 +601,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       panel('Umsatz nach Quelle', summary.trips.isEmpty
           ? const Text('Mit deiner ersten Fahrt erscheint hier die Aufteilung.')
           : breakdown(summary.bySource, summary.totalCents)),
-      panel('Umsatz nach Zahlungsart', breakdown({
-        for (final entry in summary.byPayment.entries)
-          entry.key.label: entry.value,
-      }, summary.totalCents)),
+      panel('Umsatz nach Zahlungsart', breakdown(summary.paymentBreakdown, summary.totalCents)),
       const Padding(
         padding: EdgeInsets.only(top: 14),
         child: Text('Der Durchschnitt berücksichtigt Tage mit mindestens einer '
