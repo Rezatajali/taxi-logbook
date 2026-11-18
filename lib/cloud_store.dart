@@ -6,10 +6,31 @@ import 'pauses.dart';
 import 'shifts.dart';
 
 class CloudRecords {
-  const CloudRecords(this.trips, {this.pending = false, this.fromCache = false});
+  const CloudRecords(this.trips, {this.pending = false, this.fromCache = false,
+    this.skipped = 0});
   final List<Trip> trips;
   final bool pending;
   final bool fromCache;
+  /// Documents that could not be read. They are shown as a warning instead of
+  /// breaking the whole logbook stream.
+  final int skipped;
+}
+
+/// Parses each document on its own so one malformed record (e.g. written by an
+/// older app version or directly via the REST API) cannot hide all others.
+(List<T>, int) parseDocuments<T>(Iterable<(String, Map<String, dynamic>)> docs,
+    T Function(Map<String, dynamic>) parse) {
+  final result = <T>[];
+  var skipped = 0;
+  for (final (id, data) in docs) {
+    try {
+      // Document ID is authoritative; it cannot redirect an edit.
+      result.add(parse({...data, 'id': id}));
+    } catch (_) {
+      skipped++;
+    }
+  }
+  return (result, skipped);
 }
 
 abstract class UserLogbookBackend {
@@ -27,16 +48,21 @@ abstract class UserLogbookBackend {
 }
 
 class CloudPauses {
-  const CloudPauses(this.pauses, {this.pending = false});
+  const CloudPauses(this.pauses, {this.pending = false, this.skipped = 0});
   final List<PauseRecord> pauses;
   final bool pending;
+  final int skipped;
 }
 
 class CloudShifts {
-  const CloudShifts(this.shifts, {this.pending = false});
+  const CloudShifts(this.shifts, {this.pending = false, this.skipped = 0});
   final List<ShiftRecord> shifts;
   final bool pending;
+  final int skipped;
 }
+
+Iterable<(String, Map<String, dynamic>)> _entries(QuerySnapshot<Map<String, dynamic>> snapshot) =>
+    snapshot.docs.map((doc) => (doc.id, doc.data()));
 
 // Bind paths once to the signed-in UID. A new account gets a new backend/store.
 class FirestoreLogbookBackend implements UserLogbookBackend {
@@ -49,9 +75,10 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
 
   @override
   Stream<CloudShifts> watchShifts() => user.collection('shifts')
-    .snapshots(includeMetadataChanges: true).map((snapshot) => CloudShifts(
-      snapshot.docs.map((doc) => ShiftRecord.fromJson({...doc.data(), 'id': doc.id})).toList(),
-      pending: snapshot.metadata.hasPendingWrites));
+    .snapshots(includeMetadataChanges: true).map((snapshot) {
+      final (shifts, skipped) = parseDocuments(_entries(snapshot), ShiftRecord.fromJson);
+      return CloudShifts(shifts, pending: snapshot.metadata.hasPendingWrites, skipped: skipped);
+    });
   @override
   Future<void> saveShift(ShiftRecord shift, {List<PauseRecord> finishedPauses = const []}) {
     final batch = user.firestore.batch();
@@ -64,24 +91,26 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
   @override
   Stream<CloudRecords> watchTrips() => trips
       .snapshots(includeMetadataChanges: true)
-      .map((snapshot) => CloudRecords(
-            snapshot.docs.map((doc) {
-              final json = doc.data();
-              // Document ID is authoritative; it cannot redirect an edit.
-              json['id'] = doc.id;
-              return Trip.fromJson(json);
-            }).toList(),
-            pending: snapshot.metadata.hasPendingWrites,
-            fromCache: snapshot.metadata.isFromCache,
-          ));
+      .map((snapshot) {
+        final (trips, skipped) = parseDocuments(_entries(snapshot), Trip.fromJson);
+        return CloudRecords(trips,
+          pending: snapshot.metadata.hasPendingWrites,
+          fromCache: snapshot.metadata.isFromCache,
+          skipped: skipped);
+      });
   @override
   Stream<List<String>> watchSources() => settings.snapshots().map((snapshot) {
         final sources = snapshot.data()?['sources'];
-        return sources == null ? <String>[] : List<String>.from(sources as List);
+        if (sources is! List) return <String>[];
+        return sources.whereType<String>()
+            .map((s) => s.trim()).where((s) => s.isNotEmpty && s.length <= 40).toList();
       });
   @override
   Stream<String> watchDriverNumber() => settings.snapshots().map(
-      (snapshot) => snapshot.data()?['driverNumber'] as String? ?? '');
+      (snapshot) => switch (snapshot.data()?['driverNumber']) {
+            final String number => number,
+            _ => '',
+          });
   @override
   Future<void> saveDriverNumber(String number) => settings.set(
       {'driverNumber': number}, SetOptions(merge: true));
@@ -97,13 +126,17 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
     final ref = trips.doc(id);
     final snapshot = await transaction.get(ref);
     if (!snapshot.exists) return;
-    transaction.set(ref, markTripDeleted(Trip.fromJson({...snapshot.data()!, 'id': ref.id})).toJson());
+    final previous = Trip.fromJson({...snapshot.data()!, 'id': ref.id});
+    // Already deleted: nothing to write (rules also reject edits of deleted trips).
+    if (previous.deleted) return;
+    transaction.set(ref, markTripDeleted(previous).toJson());
   });
   @override
   Stream<CloudPauses> watchPauses() => user.collection('pauses')
-    .snapshots(includeMetadataChanges: true).map((snapshot) => CloudPauses(
-      snapshot.docs.map((doc) => PauseRecord.fromJson({...doc.data(), 'id': doc.id})).toList(),
-      pending: snapshot.metadata.hasPendingWrites));
+    .snapshots(includeMetadataChanges: true).map((snapshot) {
+      final (pauses, skipped) = parseDocuments(_entries(snapshot), PauseRecord.fromJson);
+      return CloudPauses(pauses, pending: snapshot.metadata.hasPendingWrites, skipped: skipped);
+    });
   @override
   Future<void> savePause(PauseRecord pause) => user.collection('pauses').doc(pause.id).set(pause.toJson());
   @override
@@ -145,6 +178,16 @@ class CloudLogbookStore extends LogbookStore {
   bool _disposed = false;
   String? _error;
   int _generation = 0;
+  int _skippedTrips = 0;
+  int _skippedShifts = 0;
+  int _skippedPauses = 0;
+
+  @override
+  String? get dataWarning {
+    final skipped = _skippedTrips + _skippedShifts + _skippedPauses;
+    return skipped == 0 ? null
+        : '$skipped Cloud-Eintrag/Einträge konnten nicht gelesen werden und werden nicht angezeigt.';
+  }
 
   @override
   String get driverNumber => _cloudDriverNumber;
@@ -197,6 +240,7 @@ class CloudLogbookStore extends LogbookStore {
     _tripSubscription = backend.watchTrips().listen((records) {
       if (!active()) return;
       _cloudTrips = records.trips;
+      _skippedTrips = records.skipped;
       _cloudSources = [...{..._cloudSources, ...records.trips.map((t) => t.source)}];
       _pending = records.pending;
       _cached = records.fromCache;
@@ -207,6 +251,7 @@ class CloudLogbookStore extends LogbookStore {
     _shiftSubscription = backend.watchShifts().listen((records) {
       if (!active()) return;
       _cloudShifts = records.shifts;
+      _skippedShifts = records.skipped;
       _shiftPending = records.pending;
       _shiftsReady = true;
       _notify();
@@ -214,6 +259,7 @@ class CloudLogbookStore extends LogbookStore {
     _pauseSubscription = backend.watchPauses().listen((records) {
       if (!active()) return;
       _cloudPauses = records.pauses;
+      _skippedPauses = records.skipped;
       _pausePending = records.pending;
       _pausesReady = true;
       _notify();

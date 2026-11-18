@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () => setState(() => hidden = !hidden),
                   icon: Icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
                 validator: (value) => (value ?? '').isEmpty ? 'Bitte Passwort eingeben.'
-                  : register && value!.length < 6 ? 'Mindestens 6 Zeichen.' : null),
+                  : register && value!.length < 8 ? 'Mindestens 8 Zeichen.' : null),
             ],
             if (register) ...[
               const SizedBox(height: 16),

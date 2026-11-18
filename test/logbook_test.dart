@@ -126,7 +126,12 @@ void main() {
   test('Unreadable saved data is preserved and reported', () async {
     SharedPreferences.setMockInitialValues({LogbookStore.storageKey: 'broken json'});
     final prefs = await SharedPreferences.getInstance();
-    expect(() => LogbookStore(prefs).load(), throwsFormatException);
+    final store = LogbookStore(prefs)..load();
+    expect(store.ready, isFalse);
+    expect(store.syncError, isNotNull);
+    await expectLater(store.addSource('Zentrale'), throwsStateError);
+    await expectLater(store.saveTrip(Trip(id: 'x', at: DateTime(2026, 10, 5),
+      cents: 1000, source: 'Taxi', payment: PaymentMethod.cash)), throwsStateError);
     expect(prefs.getString(LogbookStore.storageKey), 'broken json');
   });
 }

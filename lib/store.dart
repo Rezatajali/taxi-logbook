@@ -24,19 +24,35 @@ class LogbookStore extends ChangeNotifier {
 
   bool get isCloud => false;
   bool get loading => false;
-  bool get ready => true;
+  // Unreadable local data must never be overwritten by a later save.
+  String? _loadError;
+  bool get ready => _loadError == null;
   bool get pendingWrites => false;
-  String? get syncError => null;
-  String get storageLabel => 'Lokal';
+  String? get syncError => _loadError;
+  /// Non-blocking notice, e.g. records that could not be read.
+  String? get dataWarning => null;
+  String get storageLabel => _loadError == null ? 'Lokal' : 'Lokal (gesperrt)';
   Future<void> retry() async {}
 
   List<Trip> get trips => List.unmodifiable(_trips);
   List<String> get sources => List.unmodifiable(_sources);
 
   void load() {
+    try {
+      _load();
+      _loadError = null;
+    } catch (_) {
+      // Fail visibly and read-only instead of silently overwriting records.
+      // Cloud sign-in stays available because startup no longer aborts.
+      _loadError = 'Lokale Einträge sind beschädigt und können nicht gelesen '
+          'werden. Lokale Änderungen sind gesperrt, damit nichts überschrieben wird.';
+    }
+    notifyListeners();
+  }
+
+  void _load() {
     final raw = preferences.getString(storageKey);
     if (raw == null) return;
-    // Fail visibly instead of silently overwriting unreadable records.
     final json = jsonDecode(raw) as Map<String, dynamic>;
     final trips = (json['trips'] as List)
         .map((t) => Trip.fromJson(Map<String, dynamic>.from(t as Map)))
@@ -50,13 +66,13 @@ class LogbookStore extends ChangeNotifier {
     _trips = trips;
     _sources = sources;
     _driverNumber = json['driverNumber'] as String? ?? '';
-    notifyListeners();
   }
 
   Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber, List<PauseRecord>? pauses, List<ShiftRecord>? shifts}) async {
     final nextNumber = driverNumber ?? _driverNumber;
     final nextPauses = pauses ?? _pauses;
     final nextShifts = shifts ?? _shifts;
+    if (_loadError != null) throw StateError(_loadError!);
     if (saving) throw StateError('Speicherung läuft bereits.');
     saving = true;
     notifyListeners();

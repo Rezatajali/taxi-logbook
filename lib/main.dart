@@ -242,6 +242,9 @@ class _LogbookHomeState extends State<LogbookHome> {
                       Text(widget.store.syncError!),
                       TextButton(onPressed: widget.store.retry, child: const Text('Erneut versuchen')),
                     ]))),
+                  if (widget.store.dataWarning != null) Card(child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(widget.store.dataWarning!, key: const Key('data-warning')))),
                   if (widget.store.pendingWrites) const Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.')),

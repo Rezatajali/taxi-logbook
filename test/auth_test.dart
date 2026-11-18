@@ -57,4 +57,18 @@ void main() {
     expect(auth.registrations, 0);
     expect(find.text('Passwörter stimmen nicht überein.'), findsOneWidget);
   });
+  testWidgets('Registration requires at least 8 password characters', (tester) async {
+    final auth = FakeAuth();
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.tap(find.text('Noch kein Konto? Registrieren'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('auth-email')), 'driver@example.com');
+    await tester.enterText(find.byKey(const Key('auth-password')), 'short12');
+    await tester.enterText(find.byKey(const Key('auth-confirmation')), 'short12');
+    await tester.ensureVisible(find.byKey(const Key('auth-submit')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+    expect(auth.registrations, 0);
+    expect(find.text('Mindestens 8 Zeichen.'), findsOneWidget);
+  });
 }

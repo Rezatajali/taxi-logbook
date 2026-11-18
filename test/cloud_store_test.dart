@@ -110,5 +110,28 @@ void main() {
     expect(old.trips, isEmpty);
     await backend.close();
   });
-}
 
+  test('One malformed cloud document does not hide the others', () {
+    final (trips, skipped) = parseDocuments([
+      ('good', fare('ignored-id', 2270).toJson()),
+      ('bad', {'cents': 'not a number'}),
+      ('negative', {...fare('x', 100).toJson(), 'cents': -5}),
+    ], Trip.fromJson);
+    expect(trips.single.id, 'good');
+    expect(skipped, 2);
+  });
+
+  test('Skipped cloud records are reported without blocking writes', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final backend = FakeBackend();
+    final store = CloudLogbookStore(prefs, backend)..load();
+    backend.emit();
+    expect(store.dataWarning, isNull);
+    backend.records.add(CloudRecords([fare('one', 1000)], skipped: 1));
+    expect(store.dataWarning, contains('1'));
+    expect(store.ready, isTrue);
+    store.dispose();
+    await backend.close();
+  });
+}
