@@ -22,6 +22,7 @@ class FareType {
 const fareTypes = [
   FareType('Bar', 'Taxi', PaymentMethod.cash),
   FareType('Uber', 'Uber', PaymentMethod.platform),
+  FareType('Uber Bar', 'Uber', PaymentMethod.cash),
   FareType('Karte', 'Taxi', PaymentMethod.card),
   FareType('Rechnung', 'Taxi', PaymentMethod.invoice),
   FareType('Bolt', 'Bolt', PaymentMethod.platform),

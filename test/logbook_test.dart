@@ -15,6 +15,12 @@ void main() {
     final uber = fareTypes.singleWhere((type) => type.label == 'Uber');
     expect(uber.source, 'Uber');
     expect(uber.payment, PaymentMethod.platform);
+    // Uber fares paid in cash count as Uber revenue and as cash.
+    final uberCash = fareTypes.singleWhere((type) => type.label == 'Uber Bar');
+    final cashFare = trip('uber-cash', 1500, DateTime(2026, 10, 5),
+        source: uberCash.source, payment: uberCash.payment);
+    expect(TripSummary([cashFare]).cashCents, 1500);
+    expect(TripSummary([cashFare]).bySource, {'Uber': 1500});
     final invoice = fareTypes.singleWhere((type) => type.label == 'Rechnung');
     final saved = trip('invoice', 2270, DateTime(2026, 10, 5),
         source: invoice.source, payment: invoice.payment);

@@ -6,7 +6,7 @@ Eine Codebasis für Android und Web; iPhone-Nutzer verwenden die veröffentlicht
 ## Funktionen der ersten Version
 
 Dunkles Dashboard mit grünen Diagrammen. In **Fahrten → Fahrt erfassen**
-steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Karte, Rechnung,
+steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Uber Bar, Karte, Rechnung,
 Bolt und FREENOW. Über „Quelle / Zahlung anpassen“ sind Kombinationen wie Uber + Bar möglich.
 Fahrten gruppiert einzelne Fahrten nach Datum. Unter Schichten werden Schichtanfang, Schichtende und Pausen erfasst.
 
