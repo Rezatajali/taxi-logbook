@@ -29,3 +29,12 @@ Konten: Registrierung, Anmeldung, eigene CRUD-Operationen sowie Verweigerung
 fremder und anonymer Zugriffe. Alle Testdokumente/Konten werden in `finally`
 entfernt. Es werden keine E-Mails versandt und keine bestehenden Daten angefasst.
 Der GitHub-Workflow führt diese Prüfung nach den Flutter-Tests aus.
+
+## Sicherheitsregeln (Stand dieses Branches)
+
+`firestore.rules` erlaubt nur noch die bekannten Pfade (`trips`, `pauses`,
+`shifts`, `settings/logbook`) und prüft Feldnamen, Typen und Größen.
+Als gelöscht markierte Fahrten können nicht mehr bearbeitet werden.
+Die Regeln müssen vom Projektinhaber selbst veröffentlicht werden
+(`npx firebase-tools@15.34.2 deploy --only firestore:rules`); `tool/deploy-hosting.sh`
+ändert sie weiterhin nicht. Vorher mit dem Firestore-Emulator testen.

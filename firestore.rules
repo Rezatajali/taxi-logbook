@@ -1,10 +1,81 @@
 rules_version = '2';
 
+// Each driver can only read and write their own documents. Writes are also
+// limited to the known collections and record shapes, so a signed-in client
+// cannot store arbitrary or oversized data under its account.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
-                        && request.auth.uid == userId;
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function optionalString(data, key, maxSize) {
+      return !(key in data) || data[key] == null
+        || (data[key] is string && data[key].size() <= maxSize);
+    }
+
+    function validId(data, docId) {
+      return !('id' in data) || data.id == docId;
+    }
+
+    function validTrip(data, docId) {
+      return data.keys().hasOnly(['id', 'at', 'cents', 'tipCents', 'source',
+          'payment', 'kilometers', 'note', 'editedAt', 'deletedAt', 'history'])
+        && data.keys().hasAll(['at', 'cents', 'source', 'payment'])
+        && validId(data, docId)
+        && data.at is string && data.at.size() <= 40
+        && data.cents is int && data.cents > 0 && data.cents <= 99999999
+        && (!('tipCents' in data) || (data.tipCents is int
+            && data.tipCents >= 0 && data.tipCents <= 99999999))
+        && data.source is string && data.source.size() > 0 && data.source.size() <= 100
+        && data.payment in ['cash', 'card', 'platform', 'invoice']
+        && (!('kilometers' in data) || data.kilometers == null
+            || (data.kilometers is number && data.kilometers > 0 && data.kilometers <= 10000))
+        && optionalString(data, 'note', 1000)
+        && optionalString(data, 'editedAt', 40)
+        && optionalString(data, 'deletedAt', 40)
+        && (!('history' in data) || (data.history is list && data.history.size() <= 500));
+    }
+
+    function validInterval(data, docId) {
+      return data.keys().hasOnly(['id', 'start', 'end', 'origin'])
+        && data.keys().hasAll(['start'])
+        && validId(data, docId)
+        && data.start is string && data.start.size() <= 40
+        && optionalString(data, 'end', 40)
+        && (!('origin' in data) || data.origin in ['manual', 'timer', 'gps']);
+    }
+
+    function validSettings(data) {
+      return data.keys().hasOnly(['sources', 'driverNumber'])
+        && (!('sources' in data) || (data.sources is list && data.sources.size() <= 100))
+        && (!('driverNumber' in data) || (data.driverNumber is string
+            && data.driverNumber.matches('^[0-9]{0,10}$')));
+    }
+
+    match /users/{userId} {
+      match /trips/{tripId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isOwner(userId) && validTrip(request.resource.data, tripId);
+        // Deleted trips are kept as an audit record and cannot be edited again.
+        allow update: if isOwner(userId)
+          && resource.data.get('deletedAt', null) == null
+          && validTrip(request.resource.data, tripId);
+      }
+      match /pauses/{pauseId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && validInterval(request.resource.data, pauseId);
+      }
+      match /shifts/{shiftId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && validInterval(request.resource.data, shiftId);
+      }
+      match /settings/logbook {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validSettings(request.resource.data);
+      }
     }
   }
 }

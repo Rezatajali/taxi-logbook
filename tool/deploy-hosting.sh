@@ -9,5 +9,7 @@ if ! command -v npx >/dev/null 2>&1; then
   echo "Install Node.js LTS first: https://nodejs.org/" >&2
   exit 1
 fi
-npx --yes firebase-tools login --no-localhost
-npx --yes firebase-tools deploy --only hosting --project taxi-logbook-d1104
+# Pin the CLI version so a compromised or broken new release is not run automatically.
+firebase_tools="firebase-tools@15.34.2"
+npx --yes "$firebase_tools" login --no-localhost
+npx --yes "$firebase_tools" deploy --only hosting --project taxi-logbook-d1104

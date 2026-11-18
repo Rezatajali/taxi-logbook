@@ -39,7 +39,7 @@ String authError(Object error) {
     return switch (error.code) {
       'invalid-email' => 'Bitte eine gültige E-Mail-Adresse eingeben.',
       'email-already-in-use' => 'Diese E-Mail ist bereits registriert. Bitte anmelden.',
-      'weak-password' => 'Bitte ein stärkeres Passwort wählen (mindestens 6 Zeichen).',
+      'weak-password' => 'Bitte ein stärkeres Passwort wählen (mindestens 8 Zeichen).',
       'invalid-credential' || 'wrong-password' || 'user-not-found' =>
         'E-Mail oder Passwort stimmt nicht.',
       'too-many-requests' => 'Zu viele Versuche. Bitte später erneut versuchen.',

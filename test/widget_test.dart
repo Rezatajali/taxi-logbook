@@ -67,7 +67,7 @@ void main() {
         of: find.byKey(const Key('fare-type-wheel')),
         matching: find.byWidgetPredicate((widget) => widget is Scrollable));
     final state = tester.state<ScrollableState>(scrollable);
-    state.position.jumpTo(48.0 * 3); // Rechnung
+    state.position.jumpTo(48.0 * fareTypes.indexWhere((type) => type.label == 'Rechnung'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('apply-fare-type')));
     await tester.pumpAndSettle();

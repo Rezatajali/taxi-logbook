@@ -15,6 +15,16 @@ void main() {
     final uber = fareTypes.singleWhere((type) => type.label == 'Uber');
     expect(uber.source, 'Uber');
     expect(uber.payment, PaymentMethod.platform);
+    // Uber fares paid in cash count as Uber revenue and as cash.
+    final uberCash = fareTypes.singleWhere((type) => type.label == 'Uber Bar');
+    final cashFare = trip('uber-cash', 1500, DateTime(2026, 10, 5),
+        source: uberCash.source, payment: uberCash.payment);
+    final uberSummary = TripSummary([cashFare]);
+    expect(uberSummary.cashCents, 0, reason: 'Uber Bar is not part of Bar');
+    expect(uberSummary.uberCashCents, 1500);
+    expect(uberSummary.bySource, {'Uber': 1500});
+    expect(uberSummary.paymentBreakdown['Uber Bar'], 1500);
+    expect(uberSummary.paymentBreakdown['Bar'], 0);
     final invoice = fareTypes.singleWhere((type) => type.label == 'Rechnung');
     final saved = trip('invoice', 2270, DateTime(2026, 10, 5),
         source: invoice.source, payment: invoice.payment);
@@ -45,7 +55,9 @@ void main() {
       trip('5', 10000, DateTime(2025, 10, 1)),
     ], DateTime(2026, 10)));
     expect(summary.totalCents, 90000);
-    expect(summary.cashCents, 20000);
+    // Trip 1 is Uber paid in cash, so it counts as "Uber Bar", not "Bar".
+    expect(summary.cashCents, 0);
+    expect(summary.uberCashCents, 20000);
     expect(summary.workingDays, 3);
     expect(summary.averageWorkingDayCents, 30000);
     expect(summary.bySource, {'Uber': 50000, 'Bolt': 40000});
@@ -126,7 +138,12 @@ void main() {
   test('Unreadable saved data is preserved and reported', () async {
     SharedPreferences.setMockInitialValues({LogbookStore.storageKey: 'broken json'});
     final prefs = await SharedPreferences.getInstance();
-    expect(() => LogbookStore(prefs).load(), throwsFormatException);
+    final store = LogbookStore(prefs)..load();
+    expect(store.ready, isFalse);
+    expect(store.syncError, isNotNull);
+    await expectLater(store.addSource('Zentrale'), throwsStateError);
+    await expectLater(store.saveTrip(Trip(id: 'x', at: DateTime(2026, 10, 5),
+      cents: 1000, source: 'Taxi', payment: PaymentMethod.cash)), throwsStateError);
     expect(prefs.getString(LogbookStore.storageKey), 'broken json');
   });
 }
