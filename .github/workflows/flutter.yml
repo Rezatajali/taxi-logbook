@@ -48,3 +48,38 @@ jobs:
           name: taxi-logbook-android-test
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 14
+  deploy:
+    # Publishes the tested web build to Firebase Hosting and the Firestore rules.
+    # Needs the repository secret FIREBASE_SERVICE_ACCOUNT (service account JSON);
+    # without it the job only prints a notice.
+    needs: verify
+    if: github.ref == 'refs/heads/codex/initial-logbook' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: firebase-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: taxi-logbook-web
+          path: build/web
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Firebase Hosting und Regeln veröffentlichen
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::Secret FIREBASE_SERVICE_ACCOUNT fehlt - Veröffentlichung übersprungen."
+            exit 0
+          fi
+          credentials="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials"
+          trap 'rm -f "$credentials"' EXIT
+          export GOOGLE_APPLICATION_CREDENTIALS="$credentials"
+          npx --yes firebase-tools@15.34.2 deploy --only hosting,firestore:rules \
+            --project taxi-logbook-d1104 --non-interactive
+          echo "::notice::Veröffentlicht: https://taxi-logbook-d1104.web.app"
