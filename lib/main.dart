@@ -17,6 +17,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'palette.dart';
 import 'extras_page.dart';
 import 'install_screen.dart';
 import 'pause_screen.dart';
@@ -24,12 +25,13 @@ import 'pdf_report.dart';
 import 'package:printing/printing.dart';
 import 'shifts.dart';
 
-const ink = Color(0xFFF1F5F9);
-const accent = Color(0xFFF3C45D);
-const canvas = Color(0xFF0B1220);
-const surface = Color(0xFF152236);
-const primary = Color(0xFF35D7AF);
-const muted = Color(0xFF9AAAC0);
+// Colours follow the active light/dark palette (see palette.dart).
+Color get ink => palette.ink;
+Color get accent => palette.accent;
+Color get canvas => palette.canvas;
+Color get surface => palette.surface;
+Color get primary => palette.primary;
+Color get muted => palette.muted;
 final euro = NumberFormat.currency(locale: 'de_DE', symbol: '€');
 String money(num cents) => euro.format(cents / 100);
 String km(double value) => NumberFormat('0.0', 'de_DE').format(value);
@@ -39,6 +41,7 @@ Future<void> main() async {
   try {
     final store = LogbookStore(await SharedPreferences.getInstance());
     store.load();
+    loadThemeMode(store.preferences);
     Widget? home;
     if (kIsWeb) {
       await Firebase.initializeApp(options: firebaseWebOptions);
@@ -86,56 +89,22 @@ class LogbookApp extends StatelessWidget {
   final LogbookStore store;
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: themeMode,
+    builder: (context, mode, _) {
+      palette = paletteFor(mode, MediaQuery.platformBrightnessOf(context));
+      return MaterialApp(
+        key: ValueKey(palette.brightness),
         title: 'Taxi Logbuch',
         debugShowCheckedModeBanner: false,
         locale: const Locale('de', 'DE'),
         supportedLocales: const [Locale('de', 'DE')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: primary, brightness: Brightness.dark),
-          scaffoldBackgroundColor: canvas,
-          textTheme: const TextTheme(
-            bodyMedium: TextStyle(fontSize: 15, height: 1.45),
-            bodyLarge: TextStyle(fontSize: 16, height: 1.45),
-          ),
-          cardTheme: CardThemeData(color: surface, elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-          outlinedButtonTheme: OutlinedButtonThemeData(style: OutlinedButton.styleFrom(
-            foregroundColor: ink, minimumSize: const Size(0, 48),
-            side: const BorderSide(color: Color(0xFF38516B)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
-          navigationBarTheme: NavigationBarThemeData(
-            height: 76, labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-              fontSize: 12, fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w500))),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: canvas,
-            foregroundColor: ink,
-            elevation: 0,
-          ),
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: const Color(0xFF0F1B2C),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              backgroundColor: primary,
-              foregroundColor: canvas,
-              minimumSize: const Size(0, 52),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          ),
-        ),
+        theme: buildTheme(palette),
         home: home ?? LogbookHome(store: store),
       );
+    },
+  );
 }
 
 class LogbookHome extends StatefulWidget {
@@ -235,9 +204,8 @@ class _LogbookHomeState extends State<LogbookHome> {
         builder: (context, _) => Scaffold(
           appBar: AppBar(
             title: Row(children: [
-              Container(padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(color: primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-                child: const Icon(Icons.local_taxi_rounded, color: primary, size: 22)),
+              ClipRRect(borderRadius: BorderRadius.circular(10),
+                child: Image.asset('branding/logo.png', width: 40, height: 40)),
               const SizedBox(width: 10),
               Expanded(child: Text(widget.store.driverNumber.isEmpty ? 'Taxi Logbuch' : widget.store.driverLabel, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800))),
@@ -290,7 +258,7 @@ class _LogbookHomeState extends State<LogbookHome> {
               : FloatingActionButton.extended(
                   onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
                   backgroundColor: primary,
-                  foregroundColor: canvas,
+                  foregroundColor: palette.onPrimary,
                   icon: const Icon(Icons.add),
                   label: const Text('Fahrt erfassen'),
                 ),
@@ -314,10 +282,10 @@ class _LogbookHomeState extends State<LogbookHome> {
   Widget title(String text, String subtitle) => Padding(
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(text, style: const TextStyle(
+          Text(text, style: TextStyle(
               fontSize: 28, fontWeight: FontWeight.w800, color: ink)),
           const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: muted)),
+          Text(subtitle, style: TextStyle(color: muted)),
         ]),
       );
 
@@ -325,8 +293,8 @@ class _LogbookHomeState extends State<LogbookHome> {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [Color(0xFF174B47), Color(0xFF152D40)]),
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [palette.heroStart, palette.heroEnd]),
           border: Border.all(color: primary.withValues(alpha: 0.22)),
           borderRadius: BorderRadius.circular(24),
         ),
@@ -339,7 +307,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                 color: Colors.white, fontSize: 42, fontWeight: FontWeight.w800)),
           ),
           const SizedBox(height: 12),
-          Text(detail, style: const TextStyle(color: primary)),
+          Text(detail, style: TextStyle(color: primary)),
           const SizedBox(height: 8),
           const Text('Umsatz vor Kosten und Provisionen',
               style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -353,10 +321,10 @@ class _LogbookHomeState extends State<LogbookHome> {
         decoration: BoxDecoration(
           color: surface,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF293B50)),
+          border: Border.all(color: palette.border),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(heading, style: const TextStyle(
+          Text(heading, style: TextStyle(
               fontSize: 17, fontWeight: FontWeight.w700, color: ink)),
           const SizedBox(height: 16),
           child,
@@ -366,7 +334,8 @@ class _LogbookHomeState extends State<LogbookHome> {
   Widget metrics(List<(String, String, IconData)> values) => Padding(
         padding: const EdgeInsets.only(top: 16),
         child: LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 640 ? values.length : 2;
+          // Up to three tiles fit side by side on a phone.
+          final columns = constraints.maxWidth >= 640 || values.length <= 3 ? values.length : 2;
           final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
           return Wrap(spacing: 12, runSpacing: 12, children: [
             for (final value in values)
@@ -381,10 +350,10 @@ class _LogbookHomeState extends State<LogbookHome> {
                     children: [
                   Icon(value.$3, color: primary, size: 22),
                   const SizedBox(height: 12),
-                  Text(value.$2, style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w800, color: ink)),
+                  FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value.$2, style: TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800, color: ink))),
                   const SizedBox(height: 4),
-                  Text(value.$1, style: const TextStyle(
+                  Text(value.$1, style: TextStyle(
                       fontSize: 12, color: muted)),
                 ]),
               ),
@@ -395,11 +364,11 @@ class _LogbookHomeState extends State<LogbookHome> {
   Widget emptyState(String heading, String detail) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.receipt_long_outlined, size: 36, color: ink),
+          Icon(Icons.receipt_long_outlined, size: 36, color: ink),
           const SizedBox(height: 12),
           Text(heading, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text(detail, style: const TextStyle(color: muted)),
+          Text(detail, style: TextStyle(color: muted)),
         ]),
       );
 
@@ -462,10 +431,10 @@ class _LogbookHomeState extends State<LogbookHome> {
     final editable = !trip.deleted && widget.store.ready && !widget.store.saving;
     return Container(margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: BoxDecoration(color: const Color(0xFF102033),
+      decoration: BoxDecoration(color: palette.tile,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: trip.deleted || trip.editedAt != null
-          ? color.withValues(alpha: 0.45) : const Color(0xFF293B50))),
+          ? color.withValues(alpha: 0.45) : palette.border)),
       child: Column(children: [
       ListTile(contentPadding: EdgeInsets.zero,
         title: Text(widget.store.driverLabel, style: style),
@@ -537,7 +506,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           collapsedBackgroundColor: surface, backgroundColor: surface,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          leading: const Icon(Icons.tune_rounded, color: primary),
+          leading: Icon(Icons.tune_rounded, color: primary),
           title: const Text('Filter', style: TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Text(sourceFilter == null && paymentFilter == null
             ? 'Alle Quellen und Zahlungen' : '${sourceFilter ?? 'Alle Quellen'} · ${paymentFilter?.label ?? 'Alle Zahlungen'}'),
@@ -571,7 +540,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       Row(children: [
         Expanded(child: Text('${TripSummary(trips).trips.length} Fahrten',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800))),
-        Text(money(TripSummary(trips).totalCents), style: const TextStyle(color: muted)),
+        Text(money(TripSummary(trips).totalCents), style: TextStyle(color: muted)),
       ]),
       const SizedBox(height: 14),
           trips.isEmpty
@@ -695,6 +664,16 @@ class _LogbookHomeState extends State<LogbookHome> {
 
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         title('Dein Logbuch', 'Deine Fahrernummer und dein Konto.'),
+        panel('Darstellung', SizedBox(width: double.infinity, child: SegmentedButton<ThemeMode>(
+          key: const Key('theme-mode'),
+          segments: const [
+            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), label: Text('Auto')),
+            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('Hell')),
+            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('Dunkel')),
+          ],
+          selected: {themeMode.value},
+          onSelectionChanged: (value) => saveThemeMode(widget.store.preferences, value.single),
+        ))),
         Card(child: ListTile(leading: const Icon(Icons.menu_book_outlined),
           title: const Text('Hilfe · Anleitung'), subtitle: const Text('Mit Bildern Schritt für Schritt'),
           trailing: const Icon(Icons.chevron_right),
@@ -818,7 +797,7 @@ class _DailyChartState extends State<DailyChart> {
                             ? 3 : (widget.values[i] / maximum * 145).clamp(3, 145).toDouble(),
                         decoration: BoxDecoration(
                           color: selected == i ? accent : widget.values[i] == 0
-                              ? const Color(0xFF293B50) : primary,
+                              ? palette.border : primary,
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
@@ -974,7 +953,7 @@ class _TripEditorState extends State<TripEditor> {
           children: [
             Row(children: [
               Expanded(child: Text(widget.trip == null ? 'Fahrt erfassen' : 'Fahrt bearbeiten',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink))),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink))),
               IconButton(tooltip: 'Schließen', onPressed: busy ? null : () => Navigator.pop(context),
                   icon: const Icon(Icons.close)),
             ]),
@@ -1002,7 +981,7 @@ class _TripEditorState extends State<TripEditor> {
                   child: Row(children: [
                     Expanded(child: Text(selectedType.label, overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 4),
-                    const Icon(Icons.unfold_more_rounded, size: 20, color: primary),
+                    Icon(Icons.unfold_more_rounded, size: 20, color: primary),
                   ]),
                 ),
               )),
@@ -1160,7 +1139,7 @@ class _FareTypePickerState extends State<FareTypePicker> {
           onSelectedItemChanged: (value) => index = value,
           children: widget.choices.map((type) => Center(child: Text(type.label,
               maxLines: 1, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: ink, fontSize: 21)))).toList(),
+              style: TextStyle(color: ink, fontSize: 21)))).toList(),
         )),
       ]),
     ),
