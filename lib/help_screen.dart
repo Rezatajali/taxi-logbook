@@ -23,7 +23,7 @@ const _steps = [
   _GuideStep('Profil: Deine Fahrernummer',
     'Unter „Nummer ändern“ deine eigene Nummer eintragen, zum Beispiel 267. Danach steht „Fahrer 267“ oben und bei deinen Fahrten.\n\nAngemeldete Fahrer speichern ihre Daten im eigenen Cloud-Konto. Die lokale Vorschau ist davon getrennt. Im Profil findest du auch Export und Abmelden.', Icons.badge_outlined),
   _GuideStep('Schichten und Pausen',
-    'Unten auf „Schichten“ tippen. Mit „Schicht anfangen“ und „Schicht beenden“ die Arbeitszeiten erfassen oder manuell nachtragen. Im Monatsbericht stehen Arbeitstage und Stunden. „Pause starten“ beginnt den Timer; „Pause beenden“ speichert das Ende. Der Timer bleibt auch beim Schließen der App erhalten.\n\nMit „Pause manuell eintragen“ Beginn und Ende nachtragen. Über das Datum frühere Tage ansehen. GPS-Erkennung ist noch nicht aktiv.', Icons.pause_circle_outline),
+    'Unten auf „Schichten“ tippen. Mit „Schicht anfangen“ und „Schicht beenden“ Beginn und Ende erfassen oder manuell nachtragen. Arbeitsstunden werden nicht angezeigt. „Pause starten“ beginnt den Timer; „Pause beenden“ speichert das Ende. Der Timer bleibt auch beim Schließen der App erhalten.\n\nMit „Pause manuell eintragen“ Beginn und Ende nachtragen. Über das Datum frühere Tage ansehen. GPS-Erkennung ist noch nicht aktiv.', Icons.pause_circle_outline),
   _GuideStep('Ein Symbol auf dem Handy',
     'iPhone: Den Link in Safari öffnen → Teilen → Zum Home-Bildschirm.\n\nAndroid: Den Link in Chrome öffnen → Dreipunkt-Menü → Installieren oder Zum Startbildschirm hinzufügen.\n\nDanach über das Symbol starten. Für diese Web-Version brauchst du keine APK und keinen App Store.', Icons.add_to_home_screen),
 ];

@@ -168,17 +168,6 @@ class _LogbookHomeState extends State<LogbookHome> {
     super.dispose();
   }
 
-  String? get currentWorkWarning {
-    final now = DateTime.now();
-    final running = widget.store.shifts.where((s) => s.running).toList();
-    if (running.isEmpty || !widget.store.shiftsReady || !widget.store.pausesReady) return null;
-    final daily = workTotalsForDay(widget.store.shifts, widget.store.pauses, now, now);
-    final shift = running.first;
-    final single = workTotals([shift], widget.store.pauses, shift.start, now, now);
-    final gross = single.gross > daily.gross ? single.gross : daily.gross;
-    final net = single.net > daily.net ? single.net : daily.net;
-    return workWarning(WorkTotals(gross, gross - net, Duration.zero));
-  }
 
   int tab = 0;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
@@ -276,11 +265,6 @@ class _LogbookHomeState extends State<LogbookHome> {
                   if (widget.store.pendingWrites) Padding(
                     padding: EdgeInsets.only(bottom: 12),
                     child: Text(tr('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.'))),
-                  if (currentWorkWarning != null) Card(color: Colors.red.shade900,
-                    child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-                      Icon(Icons.warning_amber), SizedBox(width: 12),
-                      Expanded(child: Text(currentWorkWarning!, key: Key('work-warning'))),
-                    ]))),
                   switch (tab) {
                     0 => tripsPage(),
                     1 => PausesPanel(store: widget.store),
@@ -593,12 +577,6 @@ class _LogbookHomeState extends State<LogbookHome> {
   Widget monthPage() {
     final summary = TripSummary(tripsInMonth(widget.store.trips, month, widget.store.shifts),
         shifts: widget.store.shifts);
-    final now = DateTime.now();
-    final times = workTotals(widget.store.shifts, widget.store.pauses,
-      DateTime(month.year, month.month), DateTime(month.year, month.month + 1), now);
-    final workDays = [for (var i = 1; i <= DateTime(month.year, month.month + 1, 0).day; i++)
-      (DateTime(month.year, month.month, i), workTotalsForDay(widget.store.shifts, widget.store.pauses,
-        DateTime(month.year, month.month, i), now))].where((v) => v.$2.gross > Duration.zero).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title(tr('Dein Monatsbericht'), tr('Umsatz, Entwicklung und Quellen auf einen Blick.')),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -624,20 +602,6 @@ class _LogbookHomeState extends State<LogbookHome> {
         onPressed: exportingPdf ? null : exportMonthPdf,
         icon: const Icon(Icons.picture_as_pdf_outlined),
         label: Text(tr('Monatsbericht als PDF')))),
-      panel(tr('Arbeitszeiten im Monat'), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (!widget.store.shiftsReady || !widget.store.pausesReady) Text(tr('Arbeitszeiten werden geladen …'))
-        else ...[
-          Text('${workDays.length} Arbeitstage · ${pauseTime(times.net)} Arbeitszeit',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-          Text('Schichtzeit: ${pauseTime(times.gross)} · Pausen: ${pauseTime(times.breaks)}'),
-          Text('Anrechnung nach deiner Regel: ${pauseTime(times.credited)}'),
-          const SizedBox(height: 12),
-          if (workDays.isEmpty) Text(tr('Schichtanfang und Schichtende unter „Schichten“ erfassen.')),
-          for (final entry in workDays) Padding(padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Text('${DateFormat('dd.MM.').format(entry.$1)} · ${pauseTime(entry.$2.net)} Arbeitszeit '
-              '· ${pauseTime(entry.$2.breaks)} Pause')),
-        ],
-      ])),
       panel(tr('Umsatz pro Tag'), DailyChart(key: ValueKey(month),
           month: month, values: summary.dailyCents(month))),
       panel(tr('Umsatz nach Quelle'), summary.trips.isEmpty
