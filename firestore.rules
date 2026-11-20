@@ -72,6 +72,18 @@ service cloud.firestore {
         allow create, update: if isOwner(userId)
           && validInterval(request.resource.data, shiftId);
       }
+      match /expenses/{expenseId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['id', 'at', 'cents', 'category', 'note'])
+          && request.resource.data.keys().hasAll(['at', 'cents', 'category'])
+          && validId(request.resource.data, expenseId)
+          && request.resource.data.at is string && request.resource.data.at.size() <= 40
+          && request.resource.data.cents is int && request.resource.data.cents > 0
+          && request.resource.data.cents <= 99999999
+          && request.resource.data.category in ['fuel', 'wash', 'parking', 'repair', 'other']
+          && optionalString(request.resource.data, 'note', 250);
+      }
       match /settings/logbook {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && validSettings(request.resource.data);

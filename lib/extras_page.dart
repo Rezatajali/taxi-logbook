@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'logbook.dart';
 import 'currency_input.dart';
+import 'expenses.dart';
 import 'store.dart';
 
 final _euro = NumberFormat.currency(locale: 'de_DE', symbol: '€');
@@ -74,6 +75,64 @@ class _ExtrasPageState extends State<ExtrasPage> {
               : '${_money(-difference)} fehlen in der Kasse',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
         )),
+    ]);
+  }
+
+  Future<void> addExpense() async {
+    final expense = await showModalBottomSheet<Expense>(context: context, isScrollControlled: true,
+      useSafeArea: true, builder: (_) => ExpenseForm(month: month));
+    if (expense == null || !mounted) return;
+    try {
+      await widget.store.saveExpense(expense);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kosten konnten nicht gespeichert werden.')));
+      }
+    }
+  }
+
+  Future<void> deleteExpense(Expense expense) async {
+    final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Kosten löschen?'),
+      content: Text('${expense.category.label} · ${_money(expense.cents)}'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+      ],
+    ));
+    if (ok == true) await widget.store.deleteExpense(expense.id);
+  }
+
+  Widget costs(TripSummary summary) {
+    final list = expensesInMonth(widget.store.expenses, month);
+    final total = list.fold(0, (sum, e) => sum + e.cents);
+    final byCategory = expensesByCategory(list).entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final canWrite = widget.store.ready && !widget.store.saving;
+    return Column(key: const Key('costs'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      row('Umsatz', summary.totalCents),
+      row('Kosten', -total),
+      const Divider(),
+      row('Nach Kosten', summary.totalCents - total, bold: true),
+      if (byCategory.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        for (final entry in byCategory) row(entry.key.label, entry.value),
+        const SizedBox(height: 8),
+        for (final e in list) ListTile(
+          key: ValueKey('expense-${e.id}'),
+          contentPadding: EdgeInsets.zero, dense: true,
+          leading: Icon(e.category.icon),
+          title: Text('${e.category.label} · ${_money(e.cents)}'),
+          subtitle: Text([DateFormat('dd.MM.').format(e.at), if (e.note.isNotEmpty) e.note].join(' · ')),
+          trailing: IconButton(tooltip: 'Löschen', icon: const Icon(Icons.delete_outline),
+            onPressed: canWrite ? () => deleteExpense(e) : null),
+        ),
+      ],
+      const SizedBox(height: 8),
+      SizedBox(width: double.infinity, child: OutlinedButton.icon(
+        key: const Key('add-expense'),
+        onPressed: canWrite ? addExpense : null,
+        icon: const Icon(Icons.add), label: const Text('Kosten erfassen'))),
     ]);
   }
 
@@ -155,6 +214,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
           onPressed: () => setState(() => month = DateTime(month.year, month.month + 1))),
       ]),
       const SizedBox(height: 8),
+      section('Kosten', Icons.local_gas_station_outlined, costs(summary)),
       section('Statistik', Icons.insights_outlined, statistics(summary)),
       section('Trinkgeld', Icons.volunteer_activism_outlined, tips.isEmpty
         ? const Text('Noch kein Trinkgeld in diesem Monat. Trage es beim Erfassen '
@@ -173,4 +233,75 @@ class _ExtrasPageState extends State<ExtrasPage> {
 abstract final class ExtrasPageWeekday {
   static const _names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
   static String name(int weekday) => _names[weekday - 1];
+}
+
+/// Bottom sheet to record one cost (fuel, car wash, parking …).
+class ExpenseForm extends StatefulWidget {
+  const ExpenseForm({super.key, required this.month});
+  final DateTime month;
+  @override
+  State<ExpenseForm> createState() => _ExpenseFormState();
+}
+
+class _ExpenseFormState extends State<ExpenseForm> {
+  final form = GlobalKey<FormState>();
+  final amount = TextEditingController();
+  final note = TextEditingController();
+  ExpenseCategory category = ExpenseCategory.fuel;
+  late DateTime at;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    // Default to today in the current month, otherwise the 1st of the shown month.
+    at = now.year == widget.month.year && now.month == widget.month.month
+        ? DateTime(now.year, now.month, now.day) : widget.month;
+  }
+
+  @override
+  void dispose() { amount.dispose(); note.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Form(key: form, child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          const Expanded(child: Text('Kosten erfassen', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800))),
+          IconButton(tooltip: 'Schließen', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+        ]),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final c in ExpenseCategory.values)
+            ChoiceChip(avatar: Icon(c.icon, size: 18), label: Text(c.label), selected: category == c,
+              onSelected: (_) => setState(() => category = c)),
+        ]),
+        const SizedBox(height: 16),
+        TextFormField(key: const Key('expense-amount'), controller: amount, autofocus: true,
+          keyboardType: TextInputType.number, inputFormatters: const [CentsInputFormatter()],
+          decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€', helperText: '4500 → 45,00 €'),
+          validator: (v) => parseCents(v ?? '') == null ? 'Betrag größer als 0 eingeben.' : null),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(icon: const Icon(Icons.calendar_today_outlined),
+          label: Text(DateFormat('dd.MM.yyyy').format(at)),
+          onPressed: () async {
+            final picked = await showDatePicker(context: context, initialDate: at,
+              firstDate: DateTime(2020), lastDate: DateTime(2100));
+            if (picked != null) setState(() => at = picked);
+          }),
+        const SizedBox(height: 12),
+        TextFormField(controller: note, maxLength: 250,
+          decoration: const InputDecoration(labelText: 'Notiz (optional)')),
+        const SizedBox(height: 8),
+        SizedBox(width: double.infinity, child: FilledButton.icon(
+          key: const Key('save-expense'),
+          icon: const Icon(Icons.check), label: const Text('Kosten speichern'),
+          onPressed: () {
+            if (!form.currentState!.validate()) return;
+            Navigator.pop(context, Expense(id: DateTime.now().microsecondsSinceEpoch.toString(),
+              at: at, cents: parseCents(amount.text)!, category: category, note: note.text.trim()));
+          })),
+      ]))),
+  );
 }
