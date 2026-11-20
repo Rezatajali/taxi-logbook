@@ -60,7 +60,7 @@ void main() {
     expect(workWarning(const WorkTotals(Duration(hours: 10), Duration.zero, Duration.zero)), contains('10 Stunden'));
     expect(workWarning(const WorkTotals(Duration(hours: 8, minutes: 1), Duration.zero, Duration.zero)), contains('8 Stunden'));
   });
-  testWidgets('Phone driver starts/ends a shift, enters one manually, and sees monthly times', (tester) async {
+  testWidgets('Phone driver starts/ends a shift and enters one manually; no working hours are shown', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -88,20 +88,22 @@ void main() {
     expect(store.shifts, hasLength(2));
     await tester.tap(find.text('Monat'));
     await tester.pumpAndSettle();
-    expect(find.text('Arbeitszeiten im Monat'), findsOneWidget);
+    expect(find.text('Arbeitszeiten im Monat'), findsNothing);
+    expect(find.textContaining('Arbeitszeit'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets('A 12-hour warning remains visible away from the shifts page', (tester) async {
+  testWidgets('Long shifts show no working-time warnings', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
     await store.saveShift(ShiftRecord(id: 'long', start: DateTime.now().subtract(const Duration(hours: 12))));
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('work-warning')), findsOneWidget);
-    await tester.tap(find.text('Fahrten'));
+    expect(find.byKey(const Key('work-warning')), findsNothing);
+    await tester.tap(find.text('Schichten'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('work-warning')), findsOneWidget);
+    expect(find.textContaining('Arbeitszeit'), findsNothing);
+    expect(find.textContaining('Stunden'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 }
