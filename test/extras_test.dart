@@ -50,4 +50,38 @@ void main() {
     expect(store.kilometersEnabled, isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  test('Cash count and statistics use cash fares, tips and shift days', () {
+    final summary = TripSummary([
+      Trip(id: '1', at: DateTime(2026, 10, 5, 18), cents: 2000, tipCents: 100, source: 'Taxi', payment: PaymentMethod.cash),
+      Trip(id: '2', at: DateTime(2026, 10, 5, 19), cents: 1500, source: 'Uber', payment: PaymentMethod.cash),
+      Trip(id: '3', at: DateTime(2026, 10, 5, 20), cents: 3000, tipCents: 500, source: 'Uber', payment: PaymentMethod.platform),
+      Trip(id: '4', at: DateTime(2026, 10, 12, 9), cents: 1000, source: 'Taxi', payment: PaymentMethod.card),
+    ]);
+    expect(summary.expectedCashCents, 3600);
+    expect(summary.bestDays.first, (DateTime(2026, 10, 5), 6500));
+    expect(summary.averageByWeekday, {1: 3750}); // both Mondays
+    expect(summary.revenueByHour[18], 2000);
+  });
+
+  testWidgets('Cash count shows the difference to the counted amount', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final store = LogbookStore(await SharedPreferences.getInstance())..load();
+    await store.saveTrip(Trip(id: 'c', at: DateTime.now(), cents: 2000,
+        source: 'Taxi', payment: PaymentMethod.cash));
+    await tester.pumpWidget(LogbookApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Extras'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('start-cash')), '5000');
+    await tester.enterText(find.byKey(const Key('counted-cash')), '6500');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('fehlen in der Kasse'), findsOneWidget);
+    expect(find.byKey(const Key('statistics')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
