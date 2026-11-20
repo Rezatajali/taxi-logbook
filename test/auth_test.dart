@@ -86,4 +86,20 @@ void main() {
     expect(find.textContaining('kein Konto'), findsOneWidget);
     expect(find.byKey(const Key('reset-notice')), findsNothing);
   });
+  testWidgets('Install guide opens from the login screen with iPhone and Android steps', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: FakeAuth(), onLocal: () {})));
+    await tester.ensureVisible(find.byKey(const Key('install-guide')));
+    await tester.tap(find.byKey(const Key('install-guide')));
+    await tester.pumpAndSettle();
+    // Tests run as Android, so the Android tab opens first.
+    expect(find.text('„App installieren“ wählen'), findsOneWidget);
+    await tester.tap(find.text('iPhone'));
+    await tester.pumpAndSettle();
+    expect(find.text('„Zum Home-Bildschirm“ wählen'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
