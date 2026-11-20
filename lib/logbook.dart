@@ -205,6 +205,43 @@ class TripSummary {
     return result;
   }
 
+  /// Cash the driver should have from fares: all cash fares (incl. Uber Bar)
+  /// plus their tips.
+  int get expectedCashCents => trips
+      .where((t) => t.payment == PaymentMethod.cash)
+      .fold(0, (sum, t) => sum + t.cents + t.tipCents);
+
+  /// Revenue per working day, best first.
+  List<(DateTime, int)> get bestDays {
+    final result = <DateTime, int>{};
+    for (final trip in trips) {
+      result.update(dayOf(trip), (v) => v + trip.cents, ifAbsent: () => trip.cents);
+    }
+    return result.entries.map((e) => (e.key, e.value)).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+  }
+
+  /// Average revenue per weekday (1 = Monday) over the days worked.
+  Map<int, int> get averageByWeekday {
+    final totals = <int, int>{};
+    final days = <int, Set<DateTime>>{};
+    for (final trip in trips) {
+      final day = dayOf(trip);
+      totals.update(day.weekday, (v) => v + trip.cents, ifAbsent: () => trip.cents);
+      days.putIfAbsent(day.weekday, () => {}).add(day);
+    }
+    return {for (final e in totals.entries) e.key: e.value ~/ days[e.key]!.length};
+  }
+
+  /// Revenue by hour of the fare (0–23).
+  List<int> get revenueByHour {
+    final hours = List<int>.filled(24, 0);
+    for (final trip in trips) {
+      hours[trip.at.toLocal().hour] += trip.cents;
+    }
+    return hours;
+  }
+
   Map<String, int> get bySource {
     final result = <String, int>{};
     for (final trip in trips) {
