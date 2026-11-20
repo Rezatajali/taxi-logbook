@@ -123,13 +123,14 @@ class _LoginScreenState extends State<LoginScreen> {
         case LoginMode.reset:
           await widget.auth.resetPassword(address);
           if (mounted) {
-            setState(() => notice = 'Falls ein Konto für diese E-Mail '
-            'besteht, erhältst du einen Link zum Festlegen eines neuen Passworts. '
-            'Bitte auch den Spam-Ordner prüfen.');
+            setState(() => notice = 'Anfrage für $address gesendet. Falls ein Konto '
+            'mit genau dieser E-Mail besteht, kommt in wenigen Minuten ein Link von '
+            'noreply@taxi-logbook-d1104.firebaseapp.com. Bitte auch Spam/Werbung prüfen. '
+            'Kommt nichts an, wurde das Konto vermutlich mit einer anderen E-Mail erstellt.');
           }
       }
     } catch (failure) {
-      if (mounted) setState(() => error = authError(failure));
+      if (mounted) setState(() => error = authError(failure, reset: mode == LoginMode.reset));
     } finally {
       if (mounted) setState(() => busy = false);
     }

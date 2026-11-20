@@ -34,8 +34,13 @@ class FirebaseDriverAuth implements DriverAuth {
   Future<void> signOut() => auth.signOut();
 }
 
-String authError(Object error) {
+String authError(Object error, {bool reset = false}) {
   if (error is FirebaseAuthException) {
+    // Only reported when Firebase email enumeration protection is turned off.
+    if (reset && error.code == 'user-not-found') {
+      return 'Zu dieser E-Mail gibt es kein Konto. Bitte die E-Mail-Adresse prüfen '
+          'oder ein neues Konto erstellen.';
+    }
     return switch (error.code) {
       'invalid-email' => 'Bitte eine gültige E-Mail-Adresse eingeben.',
       'email-already-in-use' => 'Diese E-Mail ist bereits registriert. Bitte anmelden.',
