@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:taxi_logbook/auth_screen.dart';
@@ -14,9 +15,11 @@ class FakeAuth implements DriverAuth {
   Future<void> login(String email, String password) async {}
   @override
   Future<void> register(String email, String password) async { registrations++; }
+  Object? resetFailure;
   @override
   Future<void> resetPassword(String email) async {
     resetEmail = email;
+    if (resetFailure != null) throw resetFailure!;
     await resetWait?.future;
   }
   @override
@@ -70,5 +73,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(auth.registrations, 0);
     expect(find.text('Mindestens 8 Zeichen.'), findsOneWidget);
+  });
+  testWidgets('Reset names an unknown email when Firebase reports it', (tester) async {
+    final auth = FakeAuth()..resetFailure = FirebaseAuthException(code: 'user-not-found');
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.tap(find.text('Passwort vergessen?'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('auth-email')), 'wrong@example.com');
+    await tester.ensureVisible(find.byKey(const Key('auth-submit')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('kein Konto'), findsOneWidget);
+    expect(find.byKey(const Key('reset-notice')), findsNothing);
   });
 }
