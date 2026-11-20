@@ -33,6 +33,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final auth = FakeAuth()..resetWait = Completer<void>();
     await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.ensureVisible(find.text('Passwort vergessen?'));
     await tester.tap(find.text('Passwort vergessen?'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('auth-password')), findsNothing);
@@ -49,6 +50,7 @@ void main() {
   testWidgets('Registration rejects mismatched password confirmation', (tester) async {
     final auth = FakeAuth();
     await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.ensureVisible(find.text('Noch kein Konto? Registrieren'));
     await tester.tap(find.text('Noch kein Konto? Registrieren'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('auth-email')), 'driver@example.com');
@@ -63,6 +65,7 @@ void main() {
   testWidgets('Registration requires at least 8 password characters', (tester) async {
     final auth = FakeAuth();
     await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.ensureVisible(find.text('Noch kein Konto? Registrieren'));
     await tester.tap(find.text('Noch kein Konto? Registrieren'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('auth-email')), 'driver@example.com');
@@ -77,6 +80,7 @@ void main() {
   testWidgets('Reset names an unknown email when Firebase reports it', (tester) async {
     final auth = FakeAuth()..resetFailure = FirebaseAuthException(code: 'user-not-found');
     await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.ensureVisible(find.text('Passwort vergessen?'));
     await tester.tap(find.text('Passwort vergessen?'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('auth-email')), 'wrong@example.com');

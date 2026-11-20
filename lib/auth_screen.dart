@@ -1,8 +1,10 @@
+import 'l10n.dart';
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'help_screen.dart';
 import 'install_screen.dart';
 import 'store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key, required this.auth, required this.localStore,
@@ -22,8 +24,8 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> signOut(LogbookStore store) async {
     if (store.saving || store.pendingWrites) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Bitte zuerst die ausstehenden Änderungen synchronisieren.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr('Bitte zuerst die ausstehenden Änderungen synchronisieren.'))));
       return;
     }
     try {
@@ -146,44 +148,56 @@ class _LoginScreenState extends State<LoginScreen> {
         child: AutofillGroup(child: Form(key: form, child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Align(alignment: AlignmentDirectional.centerEnd, child: PopupMenuButton<AppLanguage>(
+              key: const Key('login-language'),
+              tooltip: tr('Sprache'),
+              initialValue: language.value,
+              onSelected: (value) async =>
+                  saveLanguage(await SharedPreferences.getInstance(), value),
+              itemBuilder: (_) => [
+                for (final l in AppLanguage.values) PopupMenuItem(value: l, child: Text(l.label)),
+              ],
+              child: Padding(padding: const EdgeInsets.all(8), child: Row(mainAxisSize: MainAxisSize.min,
+                children: [const Icon(Icons.language), const SizedBox(width: 6), Text(language.value.label)])),
+            )),
             Center(child: ClipRRect(borderRadius: BorderRadius.circular(24),
               child: Image.asset('branding/logo.png', width: 96, height: 96,
                 semanticLabel: 'Taxi Logbuch'))),
             const SizedBox(height: 20),
-            Text(reset ? 'Passwort zurücksetzen' : register ? 'Konto erstellen' : 'Taxi Logbuch',
+            Text(reset ? tr('Passwort zurücksetzen') : register ? tr('Konto erstellen') : 'Taxi Logbuch',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -0.8)),
             const SizedBox(height: 12),
-            Text(reset ? 'Wir senden dir einen Link per E-Mail.'
-              : 'Fahrten erfassen. Schichten planen.\nDeinen Umsatz im Blick behalten.', textAlign: TextAlign.center),
+            Text(reset ? tr('Wir senden dir einen Link per E-Mail.')
+              : tr('Fahrten erfassen. Schichten planen.\nDeinen Umsatz im Blick behalten.'), textAlign: TextAlign.center),
             const SizedBox(height: 28),
             TextFormField(key: const Key('auth-email'), controller: email,
               enabled: !busy, keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email], autocorrect: false,
               textCapitalization: TextCapitalization.none,
-              decoration: const InputDecoration(labelText: 'E-Mail-Adresse'),
+              decoration: InputDecoration(labelText: tr('E-Mail-Adresse')),
               validator: (value) => RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
-                .hasMatch((value ?? '').trim()) ? null : 'Bitte eine gültige E-Mail eingeben.'),
+                .hasMatch((value ?? '').trim()) ? null : tr('Bitte eine gültige E-Mail eingeben.')),
             if (!reset) ...[
               const SizedBox(height: 16),
               TextFormField(key: const Key('auth-password'), controller: password,
                 enabled: !busy, obscureText: hidden, autocorrect: false,
                 enableSuggestions: false,
                 autofillHints: [register ? AutofillHints.newPassword : AutofillHints.password],
-                decoration: InputDecoration(labelText: 'Passwort', suffixIcon: IconButton(
-                  tooltip: hidden ? 'Passwort anzeigen' : 'Passwort verbergen',
+                decoration: InputDecoration(labelText: tr('Passwort'), suffixIcon: IconButton(
+                  tooltip: hidden ? tr('Passwort anzeigen') : tr('Passwort verbergen'),
                   onPressed: () => setState(() => hidden = !hidden),
                   icon: Icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
-                validator: (value) => (value ?? '').isEmpty ? 'Bitte Passwort eingeben.'
-                  : register && value!.length < 8 ? 'Mindestens 8 Zeichen.' : null),
+                validator: (value) => (value ?? '').isEmpty ? tr('Bitte Passwort eingeben.')
+                  : register && value!.length < 8 ? tr('Mindestens 8 Zeichen.') : null),
             ],
             if (register) ...[
               const SizedBox(height: 16),
               TextFormField(key: const Key('auth-confirmation'), controller: confirmation,
                 enabled: !busy, obscureText: hidden, autocorrect: false,
                 enableSuggestions: false,
-                decoration: const InputDecoration(labelText: 'Passwort wiederholen'),
-                validator: (value) => value != password.text ? 'Passwörter stimmen nicht überein.' : null),
+                decoration: InputDecoration(labelText: tr('Passwort wiederholen')),
+                validator: (value) => value != password.text ? tr('Passwörter stimmen nicht überein.') : null),
             ],
             if (error != null) Padding(padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
@@ -193,22 +207,22 @@ class _LoginScreenState extends State<LoginScreen> {
             FilledButton(key: const Key('auth-submit'), onPressed: busy ? null : submit,
               child: busy ? const SizedBox(width: 20, height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(reset ? 'Link per E-Mail senden' : register ? 'Konto erstellen' : 'Anmelden')),
+                : Text(reset ? tr('Link per E-Mail senden') : register ? tr('Konto erstellen') : tr('Anmelden'))),
             if (!reset) TextButton(onPressed: busy ? null : () => changeMode(LoginMode.reset),
-              child: const Text('Passwort vergessen?')),
+              child: Text(tr('Passwort vergessen?'))),
             TextButton(onPressed: busy ? null : () => changeMode(
               mode == LoginMode.login ? LoginMode.register : LoginMode.login),
-              child: Text(mode == LoginMode.login ? 'Noch kein Konto? Registrieren' : 'Zur Anmeldung')),
+              child: Text(mode == LoginMode.login ? tr('Noch kein Konto? Registrieren') : tr('Zur Anmeldung'))),
             OutlinedButton.icon(key: const Key('install-guide'),
               onPressed: busy ? null : () => Navigator.push(context,
                 MaterialPageRoute<void>(builder: (_) => const InstallScreen())),
-              icon: const Icon(Icons.add_to_home_screen), label: const Text('App aufs Handy holen')),
+              icon: const Icon(Icons.add_to_home_screen), label: Text(tr('App aufs Handy holen'))),
             TextButton.icon(onPressed: busy ? null : () => Navigator.push(context,
               MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
-              icon: const Icon(Icons.help_outline), label: const Text('Hilfe · Anleitung')),
+              icon: const Icon(Icons.help_outline), label: Text(tr('Hilfe · Anleitung'))),
             const Divider(height: 32),
             TextButton(onPressed: busy ? null : widget.onLocal,
-              child: const Text('Lokale Vorschau / bisherige Einträge')),
+              child: Text(tr('Lokale Vorschau / bisherige Einträge'))),
             const Text('Lokale Einträge bleiben in diesem Browser und werden '
               'nicht automatisch einem Konto zugeordnet.',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),

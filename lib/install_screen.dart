@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -15,30 +16,30 @@ class InstallScreen extends StatelessWidget {
       initialIndex: android ? 1 : 0,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('App aufs Handy holen'),
+          title: Text(tr('App aufs Handy holen')),
           bottom: const TabBar(tabs: [
             Tab(icon: Icon(Icons.phone_iphone), text: 'iPhone'),
             Tab(icon: Icon(Icons.phone_android), text: 'Android'),
           ]),
         ),
-        body: const TabBarView(children: [
+        body: TabBarView(children: [
           _Steps(key: Key('install-ios'), steps: [
-            _Step(Icons.public, 'Link in Safari öffnen',
+            _Step(Icons.public, tr('Link in Safari öffnen'),
                 'Öffne $appUrl in Safari. In anderen Browsern fehlt die Funktion oft.'),
-            _Step(Icons.ios_share, 'Auf „Teilen“ tippen',
-                'Das Quadrat mit dem Pfeil nach oben – unten in der Leiste (bei neuen iPhones evtl. erst „…“ antippen).'),
-            _Step(Icons.add_box_outlined, '„Zum Home-Bildschirm“ wählen',
-                'In der Liste etwas nach unten scrollen und „Zum Home-Bildschirm“ antippen.'),
-            _Step(Icons.check_circle_outline, 'Oben rechts „Hinzufügen“',
-                'Fertig: Das Taxi-Logbuch-Symbol liegt jetzt auf deinem Home-Bildschirm und öffnet sich wie eine App.'),
+            _Step(Icons.ios_share, tr('Auf „Teilen“ tippen'),
+                tr('Das Quadrat mit dem Pfeil nach oben – unten in der Leiste (bei neuen iPhones evtl. erst „…“ antippen).')),
+            _Step(Icons.add_box_outlined, tr('„Zum Home-Bildschirm“ wählen'),
+                tr('In der Liste etwas nach unten scrollen und „Zum Home-Bildschirm“ antippen.')),
+            _Step(Icons.check_circle_outline, tr('Oben rechts „Hinzufügen“'),
+                tr('Fertig: Das Taxi-Logbuch-Symbol liegt jetzt auf deinem Home-Bildschirm und öffnet sich wie eine App.')),
           ]),
           _Steps(key: Key('install-android'), steps: [
-            _Step(Icons.public, 'Link in Chrome öffnen', 'Öffne $appUrl in Google Chrome.'),
-            _Step(Icons.more_vert, 'Drei-Punkte-Menü öffnen', 'Oben rechts auf die drei Punkte tippen.'),
-            _Step(Icons.install_mobile, '„App installieren“ wählen',
-                'Je nach Handy heißt es auch „Zum Startbildschirm hinzufügen“.'),
-            _Step(Icons.check_circle_outline, '„Installieren“ bestätigen',
-                'Fertig: Das Symbol liegt auf dem Startbildschirm und öffnet sich wie eine App.'),
+            _Step(Icons.public, tr('Link in Chrome öffnen'), 'Öffne $appUrl in Google Chrome.'),
+            _Step(Icons.more_vert, tr('Drei-Punkte-Menü öffnen'), tr('Oben rechts auf die drei Punkte tippen.')),
+            _Step(Icons.install_mobile, tr('„App installieren“ wählen'),
+                tr('Je nach Handy heißt es auch „Zum Startbildschirm hinzufügen“.')),
+            _Step(Icons.check_circle_outline, tr('„Installieren“ bestätigen'),
+                tr('Fertig: Das Symbol liegt auf dem Startbildschirm und öffnet sich wie eine App.')),
           ]),
         ]),
       ),

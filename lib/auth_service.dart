@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class DriverAccount {
@@ -42,17 +43,17 @@ String authError(Object error, {bool reset = false}) {
           'oder ein neues Konto erstellen.';
     }
     return switch (error.code) {
-      'invalid-email' => 'Bitte eine gültige E-Mail-Adresse eingeben.',
-      'email-already-in-use' => 'Diese E-Mail ist bereits registriert. Bitte anmelden.',
-      'weak-password' => 'Bitte ein stärkeres Passwort wählen (mindestens 8 Zeichen).',
+      'invalid-email' => tr('Bitte eine gültige E-Mail-Adresse eingeben.'),
+      'email-already-in-use' => tr('Diese E-Mail ist bereits registriert. Bitte anmelden.'),
+      'weak-password' => tr('Bitte ein stärkeres Passwort wählen (mindestens 8 Zeichen).'),
       'invalid-credential' || 'wrong-password' || 'user-not-found' =>
-        'E-Mail oder Passwort stimmt nicht.',
-      'too-many-requests' => 'Zu viele Versuche. Bitte später erneut versuchen.',
-      'network-request-failed' => 'Keine Verbindung. Bitte Internetverbindung prüfen.',
+        tr('E-Mail oder Passwort stimmt nicht.'),
+      'too-many-requests' => tr('Zu viele Versuche. Bitte später erneut versuchen.'),
+      'network-request-failed' => tr('Keine Verbindung. Bitte Internetverbindung prüfen.'),
       'operation-not-allowed' => 'E-Mail/Passwort ist in Firebase noch nicht aktiviert.',
-      'user-disabled' => 'Dieses Konto ist deaktiviert.',
-      _ => 'Aktion nicht möglich. Bitte erneut versuchen.',
+      'user-disabled' => tr('Dieses Konto ist deaktiviert.'),
+      _ => tr('Aktion nicht möglich. Bitte erneut versuchen.'),
     };
   }
-  return 'Aktion nicht möglich. Bitte erneut versuchen.';
+  return tr('Aktion nicht möglich. Bitte erneut versuchen.');
 }

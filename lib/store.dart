@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,7 +31,7 @@ class LogbookStore extends ChangeNotifier {
     await preferences.setBool(kilometersKey, value);
     notifyListeners();
   }
-  String get driverLabel => driverNumber.isEmpty ? 'Fahrer' : 'Fahrer $driverNumber';
+  String get driverLabel => driverNumber.isEmpty ? tr('Fahrer') : 'Fahrer $driverNumber';
   bool saving = false;
 
   bool get isCloud => false;
@@ -42,7 +43,7 @@ class LogbookStore extends ChangeNotifier {
   String? get syncError => _loadError;
   /// Non-blocking notice, e.g. records that could not be read.
   String? get dataWarning => null;
-  String get storageLabel => _loadError == null ? 'Lokal' : 'Lokal (gesperrt)';
+  String get storageLabel => _loadError == null ? tr('Lokal') : 'Lokal (gesperrt)';
   Future<void> retry() async {}
 
   List<Trip> get trips => List.unmodifiable(_trips);

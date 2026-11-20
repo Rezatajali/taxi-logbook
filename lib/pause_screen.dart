@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -39,7 +40,7 @@ class _PausesPanelState extends State<PausesPanel> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pause konnte nicht gespeichert werden. Bitte erneut versuchen.')));
+          SnackBar(content: Text(tr('Pause konnte nicht gespeichert werden. Bitte erneut versuchen.'))));
       }
     }
   }
@@ -59,10 +60,10 @@ class _PausesPanelState extends State<PausesPanel> {
     final entries = widget.store.pauses.where((p) => p.start.isBefore(until) &&
       (p.end ?? now).isAfter(from)).toList()..sort((a, b) => b.start.compareTo(a.start));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Schichten & Pausen', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+      Text(tr('Schichten & Pausen'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
       const SizedBox(height: 12),
       Row(children: [
-        IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
+        IconButton(tooltip: tr('Vorheriger Tag'), icon: const Icon(Icons.chevron_left),
           onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
         Expanded(child: TextButton(onPressed: () async {
           final picked = await showDatePicker(context: context, initialDate: day,
@@ -70,43 +71,43 @@ class _PausesPanelState extends State<PausesPanel> {
           if (picked != null && mounted) setState(() => day = picked);
         }, child: Text(DateFormat('dd.MM.yyyy').format(day),
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)))),
-        IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
+        IconButton(tooltip: tr('Nächster Tag'), icon: const Icon(Icons.chevron_right),
           onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
       ]),
       ShiftPanel(store: widget.store, day: day),
       const Divider(height: 36),
-      const Text('Deine Pausen', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-      if (!widget.store.pausesReady) const Text('Pausen werden geladen …'),
+      Text(tr('Deine Pausen'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+      if (!widget.store.pausesReady) Text(tr('Pausen werden geladen …')),
       if (running.isEmpty) SizedBox(width: double.infinity, child: FilledButton.icon(
         key: const Key('start-pause'), onPressed: enabled ? () => save(PauseRecord(
           id: now.microsecondsSinceEpoch.toString(), start: DateTime.now().toUtc(), origin: PauseOrigin.timer)) : null,
-        icon: const Icon(Icons.pause_circle_outline), label: const Text('Pause starten'))),
+        icon: const Icon(Icons.pause_circle_outline), label: Text(tr('Pause starten')))),
       for (final pause in running) Card(child: Padding(padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Pause läuft', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text(tr('Pause läuft'), style: TextStyle(fontWeight: FontWeight.w700)),
           Text('Seit ${DateFormat('dd.MM. HH:mm').format(pause.start.toLocal())}'),
           Text(pauseTime(now.difference(pause.start)),
             style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800)),
           const SizedBox(height: 12),
           FilledButton.icon(key: ValueKey('stop-pause-${pause.id}'),
             onPressed: enabled ? () => save(pause.finish(DateTime.now().toUtc())) : null,
-            icon: const Icon(Icons.stop_circle_outlined), label: const Text('Pause beenden')),
+            icon: const Icon(Icons.stop_circle_outlined), label: Text(tr('Pause beenden'))),
         ]))),
       const SizedBox(height: 12),
       OutlinedButton.icon(key: const Key('manual-pause'), onPressed: enabled ? () => manual() : null,
-        icon: const Icon(Icons.edit_calendar_outlined), label: const Text('Pause manuell eintragen')),
+        icon: const Icon(Icons.edit_calendar_outlined), label: Text(tr('Pause manuell eintragen'))),
       const SizedBox(height: 24),
       Text('Pausenzeit: ${pauseTime(pauseDurationForDay(widget.store.pauses, day, now))}',
         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
       const SizedBox(height: 12),
-      if (entries.isEmpty) const Text('Für diesen Tag sind noch keine Pausen eingetragen.'),
+      if (entries.isEmpty) Text(tr('Für diesen Tag sind noch keine Pausen eingetragen.')),
       for (final pause in entries) Card(child: ListTile(
         leading: const Icon(Icons.pause_circle_outline),
         title: Text('${DateFormat('dd.MM. HH:mm').format(pause.start.toLocal())} → '
           '${pause.end == null ? 'läuft' : DateFormat('dd.MM. HH:mm').format(pause.end!.toLocal())}'),
         subtitle: Text('${pause.origin == PauseOrigin.timer ? 'Timer' : pause.origin == PauseOrigin.gps ? 'GPS' : 'Manuell'} · '
           '${pauseTime((pause.end ?? now).difference(pause.start))}'),
-        trailing: pause.running ? null : IconButton(tooltip: 'Pause bearbeiten',
+        trailing: pause.running ? null : IconButton(tooltip: tr('Pause bearbeiten'),
           onPressed: enabled ? () => manual(pause) : null, icon: const Icon(Icons.edit_outlined)),
       )),
       const SizedBox(height: 20),
@@ -166,17 +167,17 @@ class _ManualPauseDialogState extends State<ManualPauseDialog> {
     ]);
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title ?? (widget.pause == null ? 'Pause manuell eintragen' : 'Pause bearbeiten')),
+    title: Text(widget.title ?? (widget.pause == null ? tr('Pause manuell eintragen') : tr('Pause bearbeiten'))),
     content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start, children: [
-        controls('Beginn', true, start), const SizedBox(height: 12), controls('Ende', false, end),
+        controls(tr('Beginn'), true, start), const SizedBox(height: 12), controls(tr('Ende'), false, end),
         if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ])),
-    actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+    actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Abbrechen'))),
       FilledButton(key: const Key('save-manual-pause'), onPressed: () {
-        if (!end.isAfter(start)) { setState(() => error = 'Das Ende muss nach dem Beginn liegen.'); return; }
+        if (!end.isAfter(start)) { setState(() => error = tr('Das Ende muss nach dem Beginn liegen.')); return; }
         Navigator.pop(context, PauseRecord(id: widget.pause?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
           start: start.toUtc(), end: end.toUtc(), origin: widget.pause?.origin ?? PauseOrigin.manual));
-      }, child: const Text('Speichern'))],
+      }, child: Text(tr('Speichern')))],
   );
 }

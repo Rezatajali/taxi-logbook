@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'l10n.dart';
 
 enum ExpenseCategory {
   fuel('Tanken', Icons.local_gas_station_outlined),
@@ -7,8 +8,9 @@ enum ExpenseCategory {
   repair('Werkstatt', Icons.build_outlined),
   other('Sonstiges', Icons.receipt_outlined);
 
-  const ExpenseCategory(this.label, this.icon);
-  final String label;
+  const ExpenseCategory(this.german, this.icon);
+  final String german;
+  String get label => tr(german);
   final IconData icon;
 }
 
