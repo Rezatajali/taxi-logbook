@@ -19,7 +19,7 @@ void main() {
     expect(find.text('Home'), findsNothing);
     expect(find.text('Deine Fahrten'), findsOneWidget);
     expect(find.text('Fahrt erfassen'), findsOneWidget);
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).destinations, hasLength(4));
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar)).destinations, hasLength(5));
     expect(find.text('Tagesumsatz'), findsOneWidget);
     expect(find.text('Davon bar'), findsOneWidget);
     expect(find.text('Trinkgeld'), findsNothing);
