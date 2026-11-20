@@ -161,6 +161,13 @@ class LogbookStore extends ChangeNotifier {
     await _persist([..._trips], [..._sources], driverNumber: number);
   }
 
+  /// Removes every record of this logbook (used when an account is deleted).
+  Future<void> deleteAllData() async {
+    await preferences.remove(storageKey);
+    _trips = []; _shifts = []; _pauses = []; _expenses = [];
+    notifyListeners();
+  }
+
   String exportJson() => const JsonEncoder.withIndent('  ').convert({
         'version': 3,
         'shifts': shifts.map((s) => s.toJson()).toList(),

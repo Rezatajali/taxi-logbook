@@ -133,5 +133,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-}
 
+  testWidgets('Deleting the account asks for the password', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final store = LogbookStore(await SharedPreferences.getInstance())..load();
+    String? usedPassword;
+    await tester.pumpWidget(LogbookApp(store: store, home: LogbookHome(store: store,
+      accountEmail: 'driver@example.com', onExit: () {},
+      onDeleteAccount: (password) async => usedPassword = password)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('delete-account')));
+    await tester.tap(find.byKey(const Key('delete-account')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('delete-password')), 'secret123');
+    await tester.tap(find.byKey(const Key('confirm-delete-account')));
+    await tester.pumpAndSettle();
+    expect(usedPassword, 'secret123');
+    expect(find.byKey(const Key('delete-password')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+}

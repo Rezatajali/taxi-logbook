@@ -31,6 +31,9 @@ class FakeBackend implements UserLogbookBackend {
   Future<void> saveExpense(Expense expense) async { expenses[expense.id] = expense; expenseRecords.add(expenses.values.toList()); }
   @override
   Future<void> deleteExpense(String id) async { expenses.remove(id); expenseRecords.add(expenses.values.toList()); }
+  bool deletedAll = false;
+  @override
+  Future<void> deleteAllData() async { deletedAll = true; trips.clear(); pauses.clear(); shifts.clear(); expenses.clear(); }
   final pauses = <String, PauseRecord>{};
   final pauseRecords = StreamController<CloudPauses>.broadcast(sync: true);
   @override
@@ -141,6 +144,24 @@ void main() {
     expect(store.dataWarning, contains('1'));
     expect(store.ready, isTrue);
     store.dispose();
+    await backend.close();
+  });
+
+  test('Deleting all data clears the cloud backend and local storage', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final local = LogbookStore(prefs)..load();
+    await local.saveTrip(fare('x', 1000));
+    await local.deleteAllData();
+    expect((LogbookStore(prefs)..load()).trips, isEmpty);
+    final backend = FakeBackend();
+    final cloud = CloudLogbookStore(prefs, backend)..load();
+    backend.emit();
+    await cloud.saveTrip(fare('y', 2000));
+    await cloud.deleteAllData();
+    expect(backend.deletedAll, isTrue);
+    expect(backend.trips, isEmpty);
+    cloud.dispose();
     await backend.close();
   });
 }
