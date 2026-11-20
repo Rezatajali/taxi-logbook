@@ -158,4 +158,27 @@ void main() {
     expect(find.byKey(const Key('delete-password')), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Changing the password sends a reset link after confirmation', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final store = LogbookStore(await SharedPreferences.getInstance())..load();
+    var sent = 0;
+    await tester.pumpWidget(LogbookApp(store: store, home: LogbookHome(store: store,
+      accountEmail: 'driver@example.com', onExit: () {}, onChangePassword: () async => sent++)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('change-password')));
+    await tester.tap(find.byKey(const Key('change-password')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('driver@example.com'), findsWidgets);
+    await tester.tap(find.byKey(const Key('send-password-link')));
+    await tester.pumpAndSettle();
+    expect(sent, 1);
+    expect(find.textContaining('Link gesendet'), findsOneWidget);
+  });
 }
