@@ -18,6 +18,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'legal_screen.dart';
 import 'palette.dart';
 import 'extras_page.dart';
 import 'install_screen.dart';
@@ -52,8 +53,8 @@ Future<void> main() async {
         auth: FirebaseDriverAuth(FirebaseAuth.instance), localStore: store,
         createStore: (account) => CloudLogbookStore(store.preferences,
           FirestoreLogbookBackend(FirebaseFirestore.instance, account.uid)),
-        homeBuilder: (data, account, exit) => LogbookHome(store: data,
-          accountEmail: account?.email, onExit: exit),
+        homeBuilder: (data, account, exit, deleteAccount) => LogbookHome(store: data,
+          accountEmail: account?.email, onExit: exit, onDeleteAccount: deleteAccount),
       );
     }
     runApp(LogbookApp(store: store, home: home));
@@ -111,9 +112,11 @@ class LogbookApp extends StatelessWidget {
 }
 
 class LogbookHome extends StatefulWidget {
-  const LogbookHome({super.key, required this.store, this.accountEmail, this.onExit});
+  const LogbookHome({super.key, required this.store, this.accountEmail, this.onExit,
+    this.onDeleteAccount});
   final String? accountEmail;
   final VoidCallback? onExit;
+  final Future<void> Function(String password)? onDeleteAccount;
   final LogbookStore store;
   @override
   State<LogbookHome> createState() => _LogbookHomeState();
@@ -710,7 +713,20 @@ class _LogbookHomeState extends State<LogbookHome> {
             OutlinedButton.icon(onPressed: widget.store.saving || widget.store.pendingWrites
               ? null : widget.onExit, icon: const Icon(Icons.logout),
               label: Text(widget.store.isCloud ? tr('Abmelden') : tr('Zur Anmeldung'))),
+            if (widget.onDeleteAccount != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(key: const Key('delete-account'),
+                onPressed: widget.store.saving ? null : () => showDialog<void>(context: context,
+                  builder: (_) => DeleteAccountDialog(onDelete: widget.onDeleteAccount!)),
+                style: TextButton.styleFrom(foregroundColor: Colors.red.shade400),
+                icon: const Icon(Icons.delete_forever_outlined), label: Text(tr('Konto löschen'))),
+            ],
           ])),
+        Card(child: ListTile(leading: const Icon(Icons.gavel_outlined),
+          title: Text(tr('Impressum · Datenschutz')),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(context,
+            MaterialPageRoute<void>(builder: (_) => const LegalScreen())))),
         Padding(padding: const EdgeInsets.only(top: 16), child: Chip(
           avatar: const Icon(Icons.cloud_done_outlined, size: 18), label: Text(widget.store.storageLabel))),
         panel(widget.store.isCloud ? tr('Cloud-Speicherung') : tr('Speicherung auf diesem Gerät'),
@@ -1155,3 +1171,50 @@ class _FareTypePickerState extends State<FareTypePicker> {
   );
 }
 
+/// Asks for the password and deletes the account with all its data.
+class DeleteAccountDialog extends StatefulWidget {
+  const DeleteAccountDialog({super.key, required this.onDelete});
+  final Future<void> Function(String password) onDelete;
+  @override
+  State<DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
+  final password = TextEditingController();
+  bool busy = false;
+  String? error;
+
+  @override
+  void dispose() { password.dispose(); super.dispose(); }
+
+  Future<void> delete() async {
+    if (password.text.isEmpty || busy) return;
+    setState(() { busy = true; error = null; });
+    try {
+      await widget.onDelete(password.text);
+      if (mounted) Navigator.pop(context);
+    } catch (failure) {
+      if (mounted) setState(() { busy = false; error = authError(failure); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(tr('Konto löschen?')),
+    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(tr('Alle Fahrten, Schichten, Pausen, Kosten und dein Konto werden endgültig gelöscht. Das kann nicht rückgängig gemacht werden.')),
+      const SizedBox(height: 16),
+      TextField(key: const Key('delete-password'), controller: password, obscureText: true,
+        enabled: !busy, decoration: InputDecoration(labelText: tr('Passwort zur Bestätigung'))),
+      if (error != null) Padding(padding: const EdgeInsets.only(top: 12),
+        child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+    ]),
+    actions: [
+      TextButton(onPressed: busy ? null : () => Navigator.pop(context), child: Text(tr('Abbrechen'))),
+      FilledButton(key: const Key('confirm-delete-account'), onPressed: busy ? null : delete,
+        style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+        child: busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            : Text(tr('Endgültig löschen'))),
+    ],
+  );
+}

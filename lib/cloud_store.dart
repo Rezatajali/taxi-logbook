@@ -44,6 +44,7 @@ abstract class UserLogbookBackend {
   Stream<List<Expense>> watchExpenses();
   Future<void> saveExpense(Expense expense);
   Future<void> deleteExpense(String id);
+  Future<void> deleteAllData();
   Stream<List<String>> watchSources();
   Stream<String> watchDriverNumber();
   Future<void> saveDriverNumber(String number);
@@ -152,6 +153,19 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
       user.collection('expenses').doc(expense.id).set(expense.toJson());
   @override
   Future<void> deleteExpense(String id) => user.collection('expenses').doc(id).delete();
+  @override
+  Future<void> deleteAllData() async {
+    for (final name in ['trips', 'pauses', 'shifts', 'expenses']) {
+      final docs = (await user.collection(name).get()).docs;
+      // Firestore batches hold at most 500 writes.
+      for (var i = 0; i < docs.length; i += 400) {
+        final batch = user.firestore.batch();
+        for (final doc in docs.skip(i).take(400)) { batch.delete(doc.reference); }
+        await batch.commit();
+      }
+    }
+    await settings.delete();
+  }
   @override
   Future<void> addSource(String source) => settings.set(
       {'sources': FieldValue.arrayUnion([source])}, SetOptions(merge: true));
@@ -362,6 +376,18 @@ class CloudLogbookStore extends LogbookStore {
   Future<void> saveExpense(Expense expense) => _write(() => backend.saveExpense(expense));
   @override
   Future<void> deleteExpense(String id) => _write(() => backend.deleteExpense(id));
+  @override
+  Future<void> deleteAllData() async {
+    // Stop listening first so the deletes do not flicker through the UI.
+    _generation++;
+    await _tripSubscription?.cancel();
+    await _pauseSubscription?.cancel();
+    await _expenseSubscription?.cancel();
+    await _shiftSubscription?.cancel();
+    await _sourceSubscription?.cancel();
+    await _driverSubscription?.cancel();
+    await backend.deleteAllData();
+  }
   @override
   Future<void> saveTrip(Trip trip) => _write(() => backend.saveTrip(trip), queued: false);
   @override

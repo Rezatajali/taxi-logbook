@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import 'help_screen.dart';
 import 'install_screen.dart';
+import 'legal_screen.dart';
 import 'store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,7 +13,9 @@ class AuthGate extends StatefulWidget {
   final DriverAuth auth;
   final LogbookStore localStore;
   final LogbookStore Function(DriverAccount) createStore;
-  final Widget Function(LogbookStore, DriverAccount?, VoidCallback) homeBuilder;
+  /// The last argument deletes the signed-in account (null for the local preview).
+  final Widget Function(LogbookStore, DriverAccount?, VoidCallback,
+      Future<void> Function(String password)?) homeBuilder;
   @override
   State<AuthGate> createState() => _AuthGateState();
 }
@@ -51,12 +54,13 @@ class _AuthGateState extends State<AuthGate> {
               content: Text(signOutError!),
               actions: [TextButton(onPressed: () => setState(() => signOutError = null),
                 child: const Text('OK'))]),
-            Expanded(child: widget.homeBuilder(store, account, () => signOut(store))),
+            Expanded(child: widget.homeBuilder(store, account, () => signOut(store),
+              (password) => widget.auth.deleteAccount(password, store.deleteAllData))),
           ]));
       }
       if (local) {
         return widget.homeBuilder(widget.localStore, null,
-          () => setState(() => local = false));
+          () => setState(() => local = false), null);
       }
       return LoginScreen(auth: widget.auth,
         onLocal: () => setState(() => local = true));
@@ -198,6 +202,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 enableSuggestions: false,
                 decoration: InputDecoration(labelText: tr('Passwort wiederholen')),
                 validator: (value) => value != password.text ? tr('Passwörter stimmen nicht überein.') : null),
+              const SizedBox(height: 8),
+              // Registration requires accepting the privacy policy.
+              FormField<bool>(
+                key: const Key('privacy-consent'),
+                initialValue: false,
+                validator: (value) => value == true ? null : tr('Bitte der Datenschutzerklärung zustimmen.'),
+                builder: (field) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: field.value ?? false,
+                    onChanged: busy ? null : (value) => field.didChange(value),
+                    title: Text(tr('Ich habe die Datenschutzerklärung gelesen und stimme zu.')),
+                    subtitle: Align(alignment: AlignmentDirectional.centerStart, child: TextButton(
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                      onPressed: () => Navigator.push(context,
+                        MaterialPageRoute<void>(builder: (_) => const LegalScreen(privacy: true))),
+                      child: Text(tr('Datenschutzerklärung lesen')))),
+                  ),
+                  if (field.hasError) Text(field.errorText!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+                ]),
+              ),
             ],
             if (error != null) Padding(padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
@@ -226,6 +253,10 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text('Lokale Einträge bleiben in diesem Browser und werden '
               'nicht automatisch einem Konto zugeordnet.',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+            const SizedBox(height: 8),
+            TextButton(key: const Key('legal-link'), onPressed: () => Navigator.push(context,
+                MaterialPageRoute<void>(builder: (_) => const LegalScreen())),
+              child: Text(tr('Impressum · Datenschutz'))),
           ],
         ))),
       ),

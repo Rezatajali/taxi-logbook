@@ -13,6 +13,8 @@ abstract class DriverAuth {
   Future<void> register(String email, String password);
   Future<void> resetPassword(String email);
   Future<void> signOut();
+  /// Confirms the password, deletes the driver's data, then the account itself.
+  Future<void> deleteAccount(String password, Future<void> Function() deleteData);
 }
 
 class FirebaseDriverAuth implements DriverAuth {
@@ -33,6 +35,16 @@ class FirebaseDriverAuth implements DriverAuth {
   Future<void> resetPassword(String email) => auth.sendPasswordResetEmail(email: email);
   @override
   Future<void> signOut() => auth.signOut();
+  @override
+  Future<void> deleteAccount(String password, Future<void> Function() deleteData) async {
+    final user = auth.currentUser;
+    if (user == null || user.email == null) throw StateError('Nicht angemeldet.');
+    // Firebase requires a recent sign-in before an account can be deleted.
+    await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email!, password: password));
+    await deleteData();
+    await user.delete();
+  }
 }
 
 String authError(Object error, {bool reset = false}) {

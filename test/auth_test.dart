@@ -24,6 +24,8 @@ class FakeAuth implements DriverAuth {
   }
   @override
   Future<void> signOut() async {}
+  @override
+  Future<void> deleteAccount(String password, Future<void> Function() deleteData) async {}
 }
 void main() {
   testWidgets('Password reset uses the trimmed email, never asks for a password, and prevents duplicate requests', (tester) async {
@@ -104,6 +106,37 @@ void main() {
     await tester.tap(find.text('iPhone'));
     await tester.pumpAndSettle();
     expect(find.text('„Zum Home-Bildschirm“ wählen'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('Registration needs privacy consent; the policy can be opened', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final auth = FakeAuth();
+    await tester.pumpWidget(MaterialApp(home: LoginScreen(auth: auth, onLocal: () {})));
+    await tester.ensureVisible(find.text('Noch kein Konto? Registrieren'));
+    await tester.tap(find.text('Noch kein Konto? Registrieren'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('auth-email')), 'driver@example.com');
+    await tester.enterText(find.byKey(const Key('auth-password')), 'secret123');
+    await tester.enterText(find.byKey(const Key('auth-confirmation')), 'secret123');
+    await tester.ensureVisible(find.byKey(const Key('auth-submit')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+    expect(auth.registrations, 0);
+    expect(find.text('Bitte der Datenschutzerklärung zustimmen.'), findsOneWidget);
+    await tester.tap(find.byType(Checkbox));
+    await tester.ensureVisible(find.byKey(const Key('auth-submit')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+    expect(auth.registrations, 1);
+    await tester.ensureVisible(find.byKey(const Key('legal-link')));
+    await tester.tap(find.byKey(const Key('legal-link')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Datenschutz'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('privacy-policy')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
