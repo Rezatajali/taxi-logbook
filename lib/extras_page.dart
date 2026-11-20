@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'logbook.dart';
@@ -47,20 +48,20 @@ class _ExtrasPageState extends State<ExtrasPage> {
     );
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
+        IconButton(tooltip: tr('Vorheriger Tag'), icon: const Icon(Icons.chevron_left),
           onPressed: () => setState(() => cashDay = DateTime(cashDay.year, cashDay.month, cashDay.day - 1))),
-        Expanded(child: Text(DateFormat('EEEE, dd.MM.', 'de_DE').format(cashDay),
+        Expanded(child: Text(DateFormat('EEEE, dd.MM.', dateLocale).format(cashDay),
           textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w700))),
-        IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
+        IconButton(tooltip: tr('Nächster Tag'), icon: const Icon(Icons.chevron_right),
           onPressed: () => setState(() => cashDay = DateTime(cashDay.year, cashDay.month, cashDay.day + 1))),
       ]),
-      row('Bar-Fahrten inkl. Uber Bar und Trinkgeld', day.expectedCashCents),
+      row(tr('Bar-Fahrten inkl. Uber Bar und Trinkgeld'), day.expectedCashCents),
       const SizedBox(height: 8),
-      field(const Key('start-cash'), startCash, 'Wechselgeld zu Schichtbeginn (optional)'),
+      field(const Key('start-cash'), startCash, tr('Wechselgeld zu Schichtbeginn (optional)')),
       const SizedBox(height: 8),
-      row('Soll in der Kasse', expected, bold: true),
+      row(tr('Soll in der Kasse'), expected, bold: true),
       const SizedBox(height: 8),
-      field(const Key('counted-cash'), countedCash, 'Gezählt'),
+      field(const Key('counted-cash'), countedCash, tr('Gezählt')),
       if (difference != null) Padding(
         padding: const EdgeInsets.only(top: 12),
         child: Container(
@@ -70,7 +71,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(12),
             color: (difference == 0 ? scheme.primary : difference > 0 ? Colors.amber : scheme.error)
                 .withValues(alpha: 0.15)),
-          child: Text(difference == 0 ? 'Passt genau ✓'
+          child: Text(difference == 0 ? tr('Passt genau ✓')
               : difference > 0 ? '${_money(difference)} zu viel in der Kasse'
               : '${_money(-difference)} fehlen in der Kasse',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
@@ -87,18 +88,18 @@ class _ExtrasPageState extends State<ExtrasPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kosten konnten nicht gespeichert werden.')));
+          SnackBar(content: Text(tr('Kosten konnten nicht gespeichert werden.'))));
       }
     }
   }
 
   Future<void> deleteExpense(Expense expense) async {
     final ok = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: const Text('Kosten löschen?'),
+      title: Text(tr('Kosten löschen?')),
       content: Text('${expense.category.label} · ${_money(expense.cents)}'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Abbrechen'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Löschen'))),
       ],
     ));
     if (ok == true) await widget.store.deleteExpense(expense.id);
@@ -110,10 +111,10 @@ class _ExtrasPageState extends State<ExtrasPage> {
     final byCategory = expensesByCategory(list).entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final canWrite = widget.store.ready && !widget.store.saving;
     return Column(key: const Key('costs'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-      row('Umsatz', summary.totalCents),
-      row('Kosten', -total),
+      row(tr('Umsatz'), summary.totalCents),
+      row(tr('Kosten'), -total),
       const Divider(),
-      row('Nach Kosten', summary.totalCents - total, bold: true),
+      row(tr('Nach Kosten'), summary.totalCents - total, bold: true),
       if (byCategory.isNotEmpty) ...[
         const SizedBox(height: 12),
         for (final entry in byCategory) row(entry.key.label, entry.value),
@@ -124,7 +125,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
           leading: Icon(e.category.icon),
           title: Text('${e.category.label} · ${_money(e.cents)}'),
           subtitle: Text([DateFormat('dd.MM.').format(e.at), if (e.note.isNotEmpty) e.note].join(' · ')),
-          trailing: IconButton(tooltip: 'Löschen', icon: const Icon(Icons.delete_outline),
+          trailing: IconButton(tooltip: tr('Löschen'), icon: const Icon(Icons.delete_outline),
             onPressed: canWrite ? () => deleteExpense(e) : null),
         ),
       ],
@@ -132,7 +133,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
       SizedBox(width: double.infinity, child: OutlinedButton.icon(
         key: const Key('add-expense'),
         onPressed: canWrite ? addExpense : null,
-        icon: const Icon(Icons.add), label: const Text('Kosten erfassen'))),
+        icon: const Icon(Icons.add), label: Text(tr('Kosten erfassen')))),
     ]);
   }
 
@@ -148,7 +149,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
   );
 
   Widget statistics(TripSummary summary) {
-    if (summary.trips.isEmpty) return const Text('Noch keine Fahrten in diesem Monat.');
+    if (summary.trips.isEmpty) return Text(tr('Noch keine Fahrten in diesem Monat.'));
     final best = summary.bestDays.take(3).toList();
     final weekdays = summary.averageByWeekday;
     final maxWeekday = weekdays.values.fold(0, (a, b) => a > b ? a : b);
@@ -158,15 +159,15 @@ class _ExtrasPageState extends State<ExtrasPage> {
     final maxBlock = blocks.fold(0, (a, b) => a > b.$2 ? a : b.$2);
     final heading = const TextStyle(fontWeight: FontWeight.w800);
     return Column(key: const Key('statistics'), crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('Beste Tage', style: heading),
+      Text(tr('Beste Tage'), style: heading),
       for (final (index, entry) in best.indexed)
-        row('${['🥇', '🥈', '🥉'][index]} ${DateFormat('EEE dd.MM.', 'de_DE').format(entry.$1)}', entry.$2),
+        row('${['🥇', '🥈', '🥉'][index]} ${DateFormat('EEE dd.MM.', dateLocale).format(entry.$1)}', entry.$2),
       const SizedBox(height: 12),
-      Text('Ø pro Wochentag', style: heading),
+      Text(tr('Ø pro Wochentag'), style: heading),
       for (var d = 1; d <= 7; d++)
         if (weekdays.containsKey(d)) bar(ExtrasPageWeekday.name(d), weekdays[d]!, maxWeekday),
       const SizedBox(height: 12),
-      Text('Umsatz nach Uhrzeit', style: heading),
+      Text(tr('Umsatz nach Uhrzeit'), style: heading),
       for (final block in blocks)
         if (block.$2 > 0) bar('${block.$1.toString().padLeft(2, '0')}–${(block.$1 + 3).toString().padLeft(2, '0')}',
           block.$2, maxBlock),
@@ -202,21 +203,21 @@ class _ExtrasPageState extends State<ExtrasPage> {
     final tips = summary.tipsBySource.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final tipTrips = summary.trips.where((t) => t.tipCents > 0).length;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Padding(padding: EdgeInsets.only(bottom: 12),
-        child: Text('Extras', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))),
-      section('Kassensturz', Icons.point_of_sale_outlined, cashCount()),
+      Padding(padding: EdgeInsets.only(bottom: 12),
+        child: Text(tr('Extras'), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800))),
+      section(tr('Kassensturz'), Icons.point_of_sale_outlined, cashCount()),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        IconButton(tooltip: 'Vorheriger Monat', icon: const Icon(Icons.chevron_left),
+        IconButton(tooltip: tr('Vorheriger Monat'), icon: const Icon(Icons.chevron_left),
           onPressed: () => setState(() => month = DateTime(month.year, month.month - 1))),
-        Text(DateFormat('MMMM yyyy', 'de_DE').format(month),
+        Text(DateFormat('MMMM yyyy', dateLocale).format(month),
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-        IconButton(tooltip: 'Nächster Monat', icon: const Icon(Icons.chevron_right),
+        IconButton(tooltip: tr('Nächster Monat'), icon: const Icon(Icons.chevron_right),
           onPressed: () => setState(() => month = DateTime(month.year, month.month + 1))),
       ]),
       const SizedBox(height: 8),
-      section('Kosten', Icons.local_gas_station_outlined, costs(summary)),
-      section('Statistik', Icons.insights_outlined, statistics(summary)),
-      section('Trinkgeld', Icons.volunteer_activism_outlined, tips.isEmpty
+      section(tr('Kosten'), Icons.local_gas_station_outlined, costs(summary)),
+      section(tr('Statistik'), Icons.insights_outlined, statistics(summary)),
+      section(tr('Trinkgeld'), Icons.volunteer_activism_outlined, tips.isEmpty
         ? const Text('Noch kein Trinkgeld in diesem Monat. Trage es beim Erfassen '
             'einer Fahrt im Feld „Trinkgeld (optional)“ ein.')
         : Column(key: const Key('tips-by-source'), children: [
@@ -224,7 +225,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
             const Divider(),
             for (final entry in tips) row(entry.key, entry.value),
             const SizedBox(height: 8),
-            const Text('Trinkgeld zählt nicht zum Umsatz.', style: TextStyle(fontSize: 12)),
+            Text(tr('Trinkgeld zählt nicht zum Umsatz.'), style: TextStyle(fontSize: 12)),
           ])),
     ]);
   }
@@ -232,7 +233,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
 
 abstract final class ExtrasPageWeekday {
   static const _names = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-  static String name(int weekday) => _names[weekday - 1];
+  static String name(int weekday) => tr(_names[weekday - 1]);
 }
 
 /// Bottom sheet to record one cost (fuel, car wash, parking …).
@@ -268,8 +269,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
     child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: Form(key: form, child: Column(
       crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
-          const Expanded(child: Text('Kosten erfassen', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800))),
-          IconButton(tooltip: 'Schließen', onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+          Expanded(child: Text(tr('Kosten erfassen'), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800))),
+          IconButton(tooltip: tr('Schließen'), onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
         ]),
         const SizedBox(height: 12),
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -280,8 +281,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
         const SizedBox(height: 16),
         TextFormField(key: const Key('expense-amount'), controller: amount, autofocus: true,
           keyboardType: TextInputType.number, inputFormatters: const [CentsInputFormatter()],
-          decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€', helperText: '4500 → 45,00 €'),
-          validator: (v) => parseCents(v ?? '') == null ? 'Betrag größer als 0 eingeben.' : null),
+          decoration: InputDecoration(labelText: tr('Betrag'), suffixText: '€', helperText: '4500 → 45,00 €'),
+          validator: (v) => parseCents(v ?? '') == null ? tr('Betrag größer als 0 eingeben.') : null),
         const SizedBox(height: 12),
         OutlinedButton.icon(icon: const Icon(Icons.calendar_today_outlined),
           label: Text(DateFormat('dd.MM.yyyy').format(at)),
@@ -292,11 +293,11 @@ class _ExpenseFormState extends State<ExpenseForm> {
           }),
         const SizedBox(height: 12),
         TextFormField(controller: note, maxLength: 250,
-          decoration: const InputDecoration(labelText: 'Notiz (optional)')),
+          decoration: InputDecoration(labelText: tr('Notiz (optional)'))),
         const SizedBox(height: 8),
         SizedBox(width: double.infinity, child: FilledButton.icon(
           key: const Key('save-expense'),
-          icon: const Icon(Icons.check), label: const Text('Kosten speichern'),
+          icon: const Icon(Icons.check), label: Text(tr('Kosten speichern')),
           onPressed: () {
             if (!form.currentState!.validate()) return;
             Navigator.pop(context, Expense(id: DateTime.now().microsecondsSinceEpoch.toString(),

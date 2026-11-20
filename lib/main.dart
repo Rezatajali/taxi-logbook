@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -42,6 +43,7 @@ Future<void> main() async {
     final store = LogbookStore(await SharedPreferences.getInstance());
     store.load();
     loadThemeMode(store.preferences);
+    loadLanguage(store.preferences);
     Widget? home;
     if (kIsWeb) {
       await Firebase.initializeApp(options: firebaseWebOptions);
@@ -89,16 +91,17 @@ class LogbookApp extends StatelessWidget {
   final LogbookStore store;
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
-    valueListenable: themeMode,
-    builder: (context, mode, _) {
-      palette = paletteFor(mode, MediaQuery.platformBrightnessOf(context));
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: Listenable.merge([themeMode, language]),
+    builder: (context, _) {
+      palette = paletteFor(themeMode.value, MediaQuery.platformBrightnessOf(context));
       return MaterialApp(
-        key: ValueKey(palette.brightness),
+        // Rebuild every page when the theme or the language changes.
+        key: ValueKey('${palette.brightness}-${language.value}'),
         title: 'Taxi Logbuch',
         debugShowCheckedModeBanner: false,
-        locale: const Locale('de', 'DE'),
-        supportedLocales: const [Locale('de', 'DE')],
+        locale: language.value.locale,
+        supportedLocales: [for (final l in AppLanguage.values) l.locale],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         theme: buildTheme(palette),
         home: home ?? LogbookHome(store: store),
@@ -178,7 +181,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       await Printing.sharePdf(bytes: bytes,
         filename: 'taxi-logbuch-${DateFormat('yyyy-MM').format(month)}.pdf');
     } catch (_) {
-      if (mounted) message('PDF konnte nicht erstellt werden.');
+      if (mounted) message(tr('PDF konnte nicht erstellt werden.'));
     } finally {
       if (mounted) setState(() => exportingPdf = false);
     }
@@ -211,7 +214,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                   style: const TextStyle(fontWeight: FontWeight.w800))),
             ]),
             actions: [
-              IconButton(tooltip: 'Hilfe · Anleitung', icon: const Icon(Icons.help_outline),
+              IconButton(tooltip: tr('Hilfe · Anleitung'), icon: const Icon(Icons.help_outline),
                 onPressed: () => Navigator.push(context,
                   MaterialPageRoute<void>(builder: (_) => const HelpScreen()))),
             ],
@@ -228,18 +231,18 @@ class _LogbookHomeState extends State<LogbookHome> {
                   if (widget.store.syncError != null) Card(child: Padding(
                     padding: const EdgeInsets.all(16), child: Column(children: [
                       Text(widget.store.syncError!),
-                      TextButton(onPressed: widget.store.retry, child: const Text('Erneut versuchen')),
+                      TextButton(onPressed: widget.store.retry, child: Text(tr('Erneut versuchen'))),
                     ]))),
                   if (widget.store.dataWarning != null) Card(child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(widget.store.dataWarning!, key: const Key('data-warning')))),
-                  if (widget.store.pendingWrites) const Padding(
+                  if (widget.store.pendingWrites) Padding(
                     padding: EdgeInsets.only(bottom: 12),
-                    child: Text('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.')),
+                    child: Text(tr('Änderungen warten auf Synchronisierung. Bitte Internetverbindung herstellen.'))),
                   if (currentWorkWarning != null) Card(color: Colors.red.shade900,
                     child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-                      const Icon(Icons.warning_amber), const SizedBox(width: 12),
-                      Expanded(child: Text(currentWorkWarning!, key: const Key('work-warning'))),
+                      Icon(Icons.warning_amber), SizedBox(width: 12),
+                      Expanded(child: Text(currentWorkWarning!, key: Key('work-warning'))),
                     ]))),
                   switch (tab) {
                     0 => tripsPage(),
@@ -259,21 +262,21 @@ class _LogbookHomeState extends State<LogbookHome> {
                   onPressed: (widget.store.saving || !widget.store.ready) ? null : () => editTrip(),
                   backgroundColor: primary,
                   foregroundColor: palette.onPrimary,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Fahrt erfassen'),
+                  icon: Icon(Icons.add),
+                  label: Text(tr('Fahrt erfassen')),
                 ),
           bottomNavigationBar: NavigationBar(
             backgroundColor: surface,
             indicatorColor: primary.withValues(alpha: 0.18),
             selectedIndex: tab,
             onDestinationSelected: (value) => setState(() => tab = value),
-            destinations: const [
+            destinations: [
               NavigationDestination(icon: Icon(Icons.local_taxi_outlined),
-                  selectedIcon: Icon(Icons.local_taxi), label: 'Fahrten'),
-              NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Schichten'),
-              NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Monat'),
-              NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: 'Extras'),
-              NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
+                  selectedIcon: Icon(Icons.local_taxi), label: tr('Fahrten')),
+              NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: tr('Schichten')),
+              NavigationDestination(icon: Icon(Icons.bar_chart), label: tr('Monat')),
+              NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: tr('Extras')),
+              NavigationDestination(icon: Icon(Icons.person_outline), label: tr('Profil')),
             ],
           ),
         ),
@@ -309,7 +312,7 @@ class _LogbookHomeState extends State<LogbookHome> {
           const SizedBox(height: 12),
           Text(detail, style: TextStyle(color: primary)),
           const SizedBox(height: 8),
-          const Text('Umsatz vor Kosten und Provisionen',
+          Text(tr('Umsatz vor Kosten und Provisionen'),
               style: TextStyle(color: Colors.white70, fontSize: 12)),
         ]),
       );
@@ -396,20 +399,20 @@ class _LogbookHomeState extends State<LogbookHome> {
 
   Future<void> deleteTrip(Trip trip) async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: const Text('Fahrt löschen?'),
+      title: Text(tr('Fahrt löschen?')),
       content: Text('${money(trip.cents)} · ${trip.source} wird entfernt.'),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Abbrechen'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Löschen'))),
       ],
     ));
     if (confirmed != true || !mounted) return;
     try { await widget.store.deleteTrip(trip.id); }
-    catch (_) { if (mounted) message('Löschen nicht möglich. Bitte erneut versuchen.'); }
+    catch (_) { if (mounted) message(tr('Löschen nicht möglich. Bitte erneut versuchen.')); }
   }
 
   Future<void> showHistory(Trip trip) => showDialog<void>(context: context,
-    builder: (context) => AlertDialog(title: const Text('Änderungsverlauf'),
+    builder: (context) => AlertDialog(title: Text(tr('Änderungsverlauf')),
       content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
         mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         for (final entry in trip.history.reversed) Padding(padding: const EdgeInsets.only(bottom: 18),
@@ -422,7 +425,7 @@ class _LogbookHomeState extends State<LogbookHome> {
             if (entry['kilometers'] != null) Text('Strecke: ${entry['kilometers']} km'),
             if ((entry['note'] as String? ?? '').isNotEmpty) Text('Notiz: ${entry['note']}'),
           ])),
-      ]))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Schließen'))]));
+      ]))), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Schließen')))]));
 
   Widget tripTile(Trip trip) {
     final color = trip.deleted ? Colors.red.shade300 : trip.editedAt != null ? accent : ink;
@@ -446,22 +449,22 @@ class _LogbookHomeState extends State<LogbookHome> {
         trailing: Text(money(trip.cents), style: style.copyWith(fontSize: 22)),
         onTap: editable ? () => editTrip(trip) : null),
       if (trip.deleted || trip.editedAt != null) Align(alignment: Alignment.centerLeft,
-        child: Text(trip.deleted ? 'Gelöscht · nicht im Umsatz' : 'Bearbeitet',
+        child: Text(trip.deleted ? tr('Gelöscht · nicht im Umsatz') : tr('Bearbeitet'),
           style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))),
       if (!trip.deleted) Row(children: [
         Expanded(child: OutlinedButton.icon(key: ValueKey('edit-${trip.id}'),
           onPressed: editable ? () => editTrip(trip) : null,
-          icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Bearbeiten'))),
+          icon: const Icon(Icons.edit_outlined, size: 18), label: Text(tr('Bearbeiten')))),
         const SizedBox(width: 12),
         Expanded(child: TextButton.icon(key: ValueKey('delete-${trip.id}'),
           onPressed: editable ? () => deleteTrip(trip) : null,
-          icon: const Icon(Icons.delete_outline, size: 18), label: const Text('Löschen'),
+          icon: const Icon(Icons.delete_outline, size: 18), label: Text(tr('Löschen')),
           style: TextButton.styleFrom(foregroundColor: Colors.red.shade300,
             minimumSize: const Size(0, 48)))),
       ]),
       if (trip.history.isNotEmpty) Align(alignment: Alignment.centerLeft,
         child: TextButton.icon(onPressed: () => showHistory(trip),
-          icon: const Icon(Icons.history, size: 18), label: const Text('Änderungsverlauf'))),
+          icon: const Icon(Icons.history, size: 18), label: Text(tr('Änderungsverlauf')))),
     ]));
   }
 
@@ -474,11 +477,11 @@ class _LogbookHomeState extends State<LogbookHome> {
         (paymentFilter == null || t.payment == paymentFilter)).toList()
       ..sort((a, b) => b.at.compareTo(a.at));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Deine Fahrten', 'Dein Tag. Jede Fahrt im Blick.'),
+      title(tr('Deine Fahrten'), tr('Dein Tag. Jede Fahrt im Blick.')),
       Container(padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
-        IconButton(tooltip: 'Vorheriger Tag', icon: const Icon(Icons.chevron_left),
+        IconButton(tooltip: tr('Vorheriger Tag'), icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day - 1))),
         Expanded(child: TextButton.icon(
           icon: const Icon(Icons.calendar_today_outlined, size: 18),
@@ -490,14 +493,14 @@ class _LogbookHomeState extends State<LogbookHome> {
             if (picked != null && mounted) setState(() => day = picked);
           },
         )),
-        IconButton(tooltip: 'Nächster Tag', icon: const Icon(Icons.chevron_right),
+        IconButton(tooltip: tr('Nächster Tag'), icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => day = DateTime(day.year, day.month, day.day + 1))),
       ])),
       const SizedBox(height: 12),
       metrics([
-        ('Tagesumsatz', money(daily.totalCents), Icons.payments_outlined),
-        ('Davon bar', money(daily.cashCents), Icons.account_balance_wallet_outlined),
-        ('Uber Bar', money(daily.uberCashCents), Icons.local_taxi_outlined),
+        (tr('Tagesumsatz'), money(daily.totalCents), Icons.payments_outlined),
+        (tr('Davon bar'), money(daily.cashCents), Icons.account_balance_wallet_outlined),
+        (tr('Uber Bar'), money(daily.uberCashCents), Icons.local_taxi_outlined),
       ]),
       const SizedBox(height: 16),
       Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -507,18 +510,18 @@ class _LogbookHomeState extends State<LogbookHome> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           leading: Icon(Icons.tune_rounded, color: primary),
-          title: const Text('Filter', style: TextStyle(fontWeight: FontWeight.w700)),
+          title: Text(tr('Filter'), style: TextStyle(fontWeight: FontWeight.w700)),
           subtitle: Text(sourceFilter == null && paymentFilter == null
-            ? 'Alle Quellen und Zahlungen' : '${sourceFilter ?? 'Alle Quellen'} · ${paymentFilter?.label ?? 'Alle Zahlungen'}'),
+            ? tr('Alle Quellen und Zahlungen') : '${sourceFilter ?? 'Alle Quellen'} · ${paymentFilter?.label ?? 'Alle Zahlungen'}'),
           childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
       DropdownButtonFormField<String>(
         key: ValueKey('source-filter-$sourceFilter'),
         initialValue: sourceFilter ?? '',
         isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Quelle filtern'),
+        decoration: InputDecoration(labelText: tr('Quelle filtern')),
         items: [
-          const DropdownMenuItem(value: '', child: Text('Alle Quellen')),
+          DropdownMenuItem(value: '', child: Text(tr('Alle Quellen'))),
           for (final s in widget.store.sources)
             DropdownMenuItem(value: s, child: Text(s)),
         ],
@@ -526,7 +529,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       ),
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
-        ChoiceChip(label: const Text('Alle Zahlungen'), selected: paymentFilter == null,
+        ChoiceChip(label: Text(tr('Alle Zahlungen')), selected: paymentFilter == null,
             onSelected: (_) => setState(() => paymentFilter = null)),
         for (final method in PaymentMethod.values)
           ChoiceChip(label: Text(method.label), selected: paymentFilter == method,
@@ -534,7 +537,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       ]),
             if (sourceFilter != null || paymentFilter != null) TextButton.icon(
               onPressed: () => setState(() { sourceFilter = null; paymentFilter = null; }),
-              icon: const Icon(Icons.restart_alt), label: const Text('Filter zurücksetzen')),
+              icon: const Icon(Icons.restart_alt), label: Text(tr('Filter zurücksetzen'))),
           ])),
       const SizedBox(height: 24),
       Row(children: [
@@ -544,7 +547,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       ]),
       const SizedBox(height: 14),
           trips.isEmpty
-            ? emptyState('Keine passenden Fahrten.', 'Wähle einen anderen Tag oder erfasse eine Fahrt.')
+            ? emptyState(tr('Keine passenden Fahrten.'), tr('Wähle einen anderen Tag oder erfasse eine Fahrt.'))
             : Column(children: trips.map(tripTile).toList()),
     ]);
   }
@@ -559,49 +562,49 @@ class _LogbookHomeState extends State<LogbookHome> {
       (DateTime(month.year, month.month, i), workTotalsForDay(widget.store.shifts, widget.store.pauses,
         DateTime(month.year, month.month, i), now))].where((v) => v.$2.gross > Duration.zero).toList();
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      title('Dein Monatsbericht', 'Umsatz, Entwicklung und Quellen auf einen Blick.'),
+      title(tr('Dein Monatsbericht'), tr('Umsatz, Entwicklung und Quellen auf einen Blick.')),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        IconButton(tooltip: 'Vorheriger Monat', icon: const Icon(Icons.chevron_left),
+        IconButton(tooltip: tr('Vorheriger Monat'), icon: const Icon(Icons.chevron_left),
             onPressed: () => setState(() => month = DateTime(month.year, month.month - 1))),
-        Text(DateFormat('MMMM yyyy', 'de_DE').format(month),
+        Text(DateFormat('MMMM yyyy', dateLocale).format(month),
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-        IconButton(tooltip: 'Nächster Monat', icon: const Icon(Icons.chevron_right),
+        IconButton(tooltip: tr('Nächster Monat'), icon: const Icon(Icons.chevron_right),
             onPressed: () => setState(() => month = DateTime(month.year, month.month + 1))),
       ]),
       const SizedBox(height: 12),
-      heroCard('Monatsumsatz', summary.totalCents,
+      heroCard(tr('Monatsumsatz'), summary.totalCents,
           '${summary.trips.length} Fahrten · ${summary.workingDays} Tage mit Fahrten'),
       metrics([
-        ('Ø Tag mit Fahrten', money(summary.averageWorkingDayCents), Icons.trending_up),
-        ('Bar erhalten', money(summary.cashCents), Icons.payments_outlined),
-        ('Uber Bar', money(summary.uberCashCents), Icons.local_taxi_outlined),
+        (tr('Ø Tag mit Fahrten'), money(summary.averageWorkingDayCents), Icons.trending_up),
+        (tr('Bar erhalten'), money(summary.cashCents), Icons.payments_outlined),
+        (tr('Uber Bar'), money(summary.uberCashCents), Icons.local_taxi_outlined),
       ]),
       const SizedBox(height: 16),
       SizedBox(width: double.infinity, child: FilledButton.icon(
         key: const Key('month-pdf'),
         onPressed: exportingPdf ? null : exportMonthPdf,
         icon: const Icon(Icons.picture_as_pdf_outlined),
-        label: const Text('Monatsbericht als PDF'))),
-      panel('Arbeitszeiten im Monat', Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (!widget.store.shiftsReady || !widget.store.pausesReady) const Text('Arbeitszeiten werden geladen …')
+        label: Text(tr('Monatsbericht als PDF')))),
+      panel(tr('Arbeitszeiten im Monat'), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (!widget.store.shiftsReady || !widget.store.pausesReady) Text(tr('Arbeitszeiten werden geladen …'))
         else ...[
           Text('${workDays.length} Arbeitstage · ${pauseTime(times.net)} Arbeitszeit',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           Text('Schichtzeit: ${pauseTime(times.gross)} · Pausen: ${pauseTime(times.breaks)}'),
           Text('Anrechnung nach deiner Regel: ${pauseTime(times.credited)}'),
           const SizedBox(height: 12),
-          if (workDays.isEmpty) const Text('Schichtanfang und Schichtende unter „Schichten“ erfassen.'),
+          if (workDays.isEmpty) Text(tr('Schichtanfang und Schichtende unter „Schichten“ erfassen.')),
           for (final entry in workDays) Padding(padding: const EdgeInsets.symmetric(vertical: 6),
             child: Text('${DateFormat('dd.MM.').format(entry.$1)} · ${pauseTime(entry.$2.net)} Arbeitszeit '
               '· ${pauseTime(entry.$2.breaks)} Pause')),
         ],
       ])),
-      panel('Umsatz pro Tag', DailyChart(key: ValueKey(month),
+      panel(tr('Umsatz pro Tag'), DailyChart(key: ValueKey(month),
           month: month, values: summary.dailyCents(month))),
-      panel('Umsatz nach Quelle', summary.trips.isEmpty
-          ? const Text('Mit deiner ersten Fahrt erscheint hier die Aufteilung.')
+      panel(tr('Umsatz nach Quelle'), summary.trips.isEmpty
+          ? Text(tr('Mit deiner ersten Fahrt erscheint hier die Aufteilung.'))
           : breakdown(summary.bySource, summary.totalCents)),
-      panel('Umsatz nach Zahlungsart', breakdown(summary.paymentBreakdown, summary.totalCents)),
+      panel(tr('Umsatz nach Zahlungsart'), breakdown(summary.paymentBreakdown, summary.totalCents)),
       const Padding(
         padding: EdgeInsets.only(top: 14),
         child: Text('Der Durchschnitt berücksichtigt Tage mit mindestens einer '
@@ -614,13 +617,13 @@ class _LogbookHomeState extends State<LogbookHome> {
   Future<void> addSource() async {
     final controller = TextEditingController();
     final value = await showDialog<String>(context: context, builder: (context) => AlertDialog(
-      title: const Text('Neue Quelle'),
+      title: Text(tr('Neue Quelle')),
       content: TextField(controller: controller, autofocus: true, maxLength: 40,
-          decoration: const InputDecoration(labelText: 'Name, z. B. Zentrale')),
+          decoration: InputDecoration(labelText: tr('Name, z. B. Zentrale'))),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Abbrechen'))),
         FilledButton(onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Hinzufügen')),
+            child: Text(tr('Hinzufügen'))),
       ],
     ));
     // The dialog's route can still animate out using its controller.
@@ -628,7 +631,7 @@ class _LogbookHomeState extends State<LogbookHome> {
     try {
       await widget.store.addSource(value);
     } catch (_) {
-      if (mounted) message('Quelle konnte nicht gespeichert werden. Bitte 1–40 Zeichen eingeben.');
+      if (mounted) message(tr('Quelle konnte nicht gespeichert werden. Bitte 1–40 Zeichen eingeben.'));
     }
   }
 
@@ -636,75 +639,81 @@ class _LogbookHomeState extends State<LogbookHome> {
     final controller = TextEditingController(text: widget.store.driverNumber);
     final formKey = GlobalKey<FormState>();
     final number = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
-      title: const Text('Deine Fahrernummer'),
+      title: Text(tr('Deine Fahrernummer')),
       content: Form(key: formKey, child: TextFormField(
-        key: const Key('driver-number-input'), controller: controller,
+        key: Key('driver-number-input'), controller: controller,
         autofocus: true, keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
-        decoration: const InputDecoration(labelText: 'Fahrernummer', hintText: 'z. B. 267'),
+        decoration: InputDecoration(labelText: tr('Fahrernummer'), hintText: 'z. B. 267'),
         validator: (value) => (value ?? '').trim().isEmpty || RegExp(r'^\d{1,10}$').hasMatch(value!.trim())
-          ? null : 'Bitte nur Ziffern eingeben.',
+          ? null : tr('Bitte nur Ziffern eingeben.'),
       )),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(tr('Abbrechen'))),
         FilledButton(onPressed: () {
           if (formKey.currentState!.validate()) Navigator.pop(dialogContext, controller.text.trim());
-        }, child: const Text('Speichern')),
+        }, child: Text(tr('Speichern'))),
       ],
     ));
     // Keep the controller alive while the closing dialog animates.
     if (number == null || !mounted) return;
     try {
       await widget.store.saveDriverNumber(number);
-      if (mounted) message('Fahrernummer gespeichert.');
+      if (mounted) message(tr('Fahrernummer gespeichert.'));
     } catch (_) {
-      if (mounted) message('Fahrernummer konnte nicht gespeichert werden.');
+      if (mounted) message(tr('Fahrernummer konnte nicht gespeichert werden.'));
     }
   }
 
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        title('Dein Logbuch', 'Deine Fahrernummer und dein Konto.'),
-        panel('Darstellung', SizedBox(width: double.infinity, child: SegmentedButton<ThemeMode>(
-          key: const Key('theme-mode'),
-          segments: const [
-            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), label: Text('Auto')),
-            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text('Hell')),
-            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text('Dunkel')),
+        title(tr('Dein Logbuch'), tr('Deine Fahrernummer und dein Konto.')),
+        panel(tr('Sprache'), Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final l in AppLanguage.values)
+            ChoiceChip(key: ValueKey('language-${l.name}'), label: Text(l.label),
+              selected: language.value == l,
+              onSelected: (_) => saveLanguage(widget.store.preferences, l)),
+        ])),
+        panel(tr('Darstellung'), SizedBox(width: double.infinity, child: SegmentedButton<ThemeMode>(
+          key: Key('theme-mode'),
+          segments: [
+            ButtonSegment(value: ThemeMode.system, icon: Icon(Icons.brightness_auto_outlined), label: Text(tr('Auto'))),
+            ButtonSegment(value: ThemeMode.light, icon: Icon(Icons.light_mode_outlined), label: Text(tr('Hell'))),
+            ButtonSegment(value: ThemeMode.dark, icon: Icon(Icons.dark_mode_outlined), label: Text(tr('Dunkel'))),
           ],
           selected: {themeMode.value},
           onSelectionChanged: (value) => saveThemeMode(widget.store.preferences, value.single),
         ))),
         Card(child: ListTile(leading: const Icon(Icons.menu_book_outlined),
-          title: const Text('Hilfe · Anleitung'), subtitle: const Text('Mit Bildern Schritt für Schritt'),
+          title: Text(tr('Hilfe · Anleitung')), subtitle: Text(tr('Mit Bildern Schritt für Schritt')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.push(context,
             MaterialPageRoute<void>(builder: (_) => const HelpScreen())))),
         Card(child: ListTile(leading: const Icon(Icons.add_to_home_screen),
-          title: const Text('App aufs Handy holen'),
-          subtitle: const Text('Symbol auf dem Home-Bildschirm – iPhone und Android'),
+          title: Text(tr('App aufs Handy holen')),
+          subtitle: Text(tr('Symbol auf dem Home-Bildschirm – iPhone und Android')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.push(context,
             MaterialPageRoute<void>(builder: (_) => const InstallScreen())))),
-        panel('Deine Fahrernummer', Column(
+        panel(tr('Deine Fahrernummer'), Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.store.driverNumber.isEmpty ? 'Noch keine Nummer eingetragen' : widget.store.driverLabel,
+            Text(widget.store.driverNumber.isEmpty ? tr('Noch keine Nummer eingetragen') : widget.store.driverLabel,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             OutlinedButton.icon(key: const Key('change-driver-number'),
               onPressed: widget.store.saving || !widget.store.ready ? null : changeDriverNumber,
-              icon: const Icon(Icons.badge_outlined), label: const Text('Nummer ändern')),
+              icon: const Icon(Icons.badge_outlined), label: Text(tr('Nummer ändern'))),
           ])),
-        if (widget.onExit != null) panel(widget.store.isCloud ? 'Dein Konto' : 'Lokale Vorschau',
+        if (widget.onExit != null) panel(widget.store.isCloud ? tr('Dein Konto') : tr('Lokale Vorschau'),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             if (widget.accountEmail != null) Text(widget.accountEmail!),
             const SizedBox(height: 12),
             OutlinedButton.icon(onPressed: widget.store.saving || widget.store.pendingWrites
               ? null : widget.onExit, icon: const Icon(Icons.logout),
-              label: Text(widget.store.isCloud ? 'Abmelden' : 'Zur Anmeldung')),
+              label: Text(widget.store.isCloud ? tr('Abmelden') : tr('Zur Anmeldung'))),
           ])),
         Padding(padding: const EdgeInsets.only(top: 16), child: Chip(
           avatar: const Icon(Icons.cloud_done_outlined, size: 18), label: Text(widget.store.storageLabel))),
-        panel(widget.store.isCloud ? 'Cloud-Speicherung' : 'Speicherung auf diesem Gerät',
+        panel(widget.store.isCloud ? tr('Cloud-Speicherung') : tr('Speicherung auf diesem Gerät'),
           Text(widget.store.isCloud
             ? 'Jede Fahrt wird separat in deinem Konto gespeichert. Mit derselben '
               'E-Mail kannst du deine Fahrten auf anderen Geräten öffnen. '
@@ -714,17 +723,17 @@ class _LogbookHomeState extends State<LogbookHome> {
               'werden nicht automatisch in ein Cloud-Konto übernommen. '
               'Bitte eine Exportkopie sichern. Die Android-Testversion ist '
               'bis zur eigenen Firebase-Registrierung ebenfalls lokal.')),
-        panel('Deine Fahrtquellen', Column(
+        panel(tr('Deine Fahrtquellen'), Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(spacing: 8, runSpacing: 8,
                 children: widget.store.sources.map((s) => Chip(label: Text(s))).toList()),
             const SizedBox(height: 12),
             OutlinedButton.icon(onPressed: (widget.store.saving || !widget.store.ready) ? null : addSource,
-                icon: const Icon(Icons.add), label: const Text('Quelle hinzufügen')),
+                icon: const Icon(Icons.add), label: Text(tr('Quelle hinzufügen'))),
           ],
         )),
-        panel('Daten exportieren', Column(
+        panel(tr('Daten exportieren'), Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Alle Fahrten, Änderungsverläufe, Pausen und Quellen als JSON in die Zwischenablage '
@@ -734,19 +743,19 @@ class _LogbookHomeState extends State<LogbookHome> {
               onPressed: () async {
                 try {
                   await Clipboard.setData(ClipboardData(text: widget.store.exportJson()));
-                  if (mounted) message('Export kopiert. Bitte in einer Datei sichern.');
+                  if (mounted) message(tr('Export kopiert. Bitte in einer Datei sichern.'));
                 } catch (_) {
-                  if (mounted) message('Kopieren nicht möglich.');
+                  if (mounted) message(tr('Kopieren nicht möglich.'));
                 }
               },
-              icon: const Icon(Icons.copy_all_outlined), label: const Text('Export kopieren'),
+              icon: const Icon(Icons.copy_all_outlined), label: Text(tr('Export kopieren')),
             ),
           ],
         )),
         Card(child: SwitchListTile(
           key: const Key('kilometers-switch'),
           secondary: const Icon(Icons.route_outlined),
-          title: const Text('Kilometer pro Fahrt erfassen'),
+          title: Text(tr('Kilometer pro Fahrt erfassen')),
           subtitle: const Text('Standardmäßig aus. Eingeschaltet erscheint im '
               'Fahrtformular ein Feld für die Strecke.'),
           value: widget.store.kilometersEnabled,
@@ -770,8 +779,8 @@ class _DailyChartState extends State<DailyChart> {
     final maximum = widget.values.fold<int>(0, (a, b) => a > b ? a : b);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(selected == null
-          ? 'Tippe auf einen Tag für den Betrag.'
-          : '${selected! + 1}. ${DateFormat('MMMM', 'de_DE').format(widget.month)}: '
+          ? tr('Tippe auf einen Tag für den Betrag.')
+          : '${selected! + 1}. ${DateFormat('MMMM', dateLocale).format(widget.month)}: '
               '${money(widget.values[selected!])}'),
       const SizedBox(height: 20),
       Text('Skala bis ${money(maximum)}', style: const TextStyle(fontSize: 12)),
@@ -811,7 +820,7 @@ class _DailyChartState extends State<DailyChart> {
           ]),
         ),
       ),
-      if (maximum == 0) const Text('Für diesen Monat sind noch keine Umsätze erfasst.'),
+      if (maximum == 0) Text(tr('Für diesen Monat sind noch keine Umsätze erfasst.')),
     ]);
   }
 }
@@ -913,7 +922,7 @@ class _TripEditorState extends State<TripEditor> {
       if (mounted) {
         setState(() {
           busy = false;
-          error = 'Nicht gespeichert. Bitte erneut versuchen.';
+          error = tr('Nicht gespeichert. Bitte erneut versuchen.');
         });
       }
     }
@@ -921,11 +930,11 @@ class _TripEditorState extends State<TripEditor> {
 
   Future<void> delete() async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: const Text('Fahrt löschen?'),
-      content: const Text('Die Fahrt bleibt als gelöscht sichtbar und zählt nicht mehr zum Umsatz.'),
+      title: Text(tr('Fahrt löschen?')),
+      content: Text(tr('Die Fahrt bleibt als gelöscht sichtbar und zählt nicht mehr zum Umsatz.')),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Abbrechen'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(tr('Löschen'))),
       ],
     ));
     if (confirmed != true || !mounted) {
@@ -936,7 +945,7 @@ class _TripEditorState extends State<TripEditor> {
       await widget.store.deleteTrip(widget.trip!.id);
       if (mounted) Navigator.pop(context);
     } catch (_) {
-      if (mounted) setState(() { busy = false; error = 'Löschen nicht möglich.'; });
+      if (mounted) setState(() { busy = false; error = tr('Löschen nicht möglich.'); });
     }
   }
 
@@ -952,9 +961,9 @@ class _TripEditorState extends State<TripEditor> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(children: [
-              Expanded(child: Text(widget.trip == null ? 'Fahrt erfassen' : 'Fahrt bearbeiten',
+              Expanded(child: Text(widget.trip == null ? tr('Fahrt erfassen') : tr('Fahrt bearbeiten'),
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ink))),
-              IconButton(tooltip: 'Schließen', onPressed: busy ? null : () => Navigator.pop(context),
+              IconButton(tooltip: tr('Schließen'), onPressed: busy ? null : () => Navigator.pop(context),
                   icon: const Icon(Icons.close)),
             ]),
             const SizedBox(height: 20),
@@ -966,10 +975,10 @@ class _TripEditorState extends State<TripEditor> {
                 enabled: !busy,
                 keyboardType: TextInputType.number,
                 inputFormatters: const [CentsInputFormatter()],
-                decoration: const InputDecoration(labelText: 'Betrag', suffixText: '€',
+                decoration: InputDecoration(labelText: tr('Betrag'), suffixText: '€',
                   hintText: '0,00', helperText: '2270 → 22,70 €'),
                 validator: (v) => parseCents(v ?? '') == null
-                    ? 'Betrag größer als 0; maximal 2 Nachkommastellen.' : null,
+                    ? tr('Betrag größer als 0; maximal 2 Nachkommastellen.') : null,
               )),
               const SizedBox(width: 12),
               SizedBox(width: 130, child: InkWell(
@@ -977,7 +986,7 @@ class _TripEditorState extends State<TripEditor> {
                 onTap: busy ? null : chooseType,
                 borderRadius: BorderRadius.circular(14),
                 child: InputDecorator(
-                  decoration: const InputDecoration(labelText: 'Art'),
+                  decoration: InputDecoration(labelText: tr('Art')),
                   child: Row(children: [
                     Expanded(child: Text(selectedType.label, overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 4),
@@ -993,10 +1002,10 @@ class _TripEditorState extends State<TripEditor> {
               enabled: !busy,
               keyboardType: TextInputType.number,
               inputFormatters: const [CentsInputFormatter()],
-              decoration: const InputDecoration(labelText: 'Trinkgeld (optional)',
+              decoration: InputDecoration(labelText: tr('Trinkgeld (optional)'),
                 suffixText: '€', prefixIcon: Icon(Icons.volunteer_activism_outlined)),
               validator: (v) => (v ?? '').trim().isNotEmpty && parseCents(v!) == null
-                  ? 'Trinkgeld größer als 0 oder leer lassen.' : null,
+                  ? tr('Trinkgeld größer als 0 oder leer lassen.') : null,
             ),
             const SizedBox(height: 16),
             Wrap(spacing: 12, runSpacing: 8, children: [
@@ -1033,11 +1042,11 @@ class _TripEditorState extends State<TripEditor> {
                   ? const SizedBox(width: 18, height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.check),
-              label: const Text('Fahrt speichern'),
+              label: Text(tr('Fahrt speichern')),
             )),
             if (widget.trip != null) Center(child: TextButton.icon(
               onPressed: busy ? null : delete,
-              icon: const Icon(Icons.delete_outline), label: const Text('Fahrt löschen'),
+              icon: const Icon(Icons.delete_outline), label: Text(tr('Fahrt löschen')),
               style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
             )),
 
@@ -1045,7 +1054,7 @@ class _TripEditorState extends State<TripEditor> {
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
-                title: const Text('Weitere Angaben (optional)', style: TextStyle(fontSize: 16)),
+                title: Text(tr('Weitere Angaben (optional)'), style: TextStyle(fontSize: 16)),
                 tilePadding: EdgeInsets.zero,
                 childrenPadding: const EdgeInsets.only(bottom: 12),
                 children: [
@@ -1053,7 +1062,7 @@ class _TripEditorState extends State<TripEditor> {
                     key: ValueKey(source),
                     initialValue: source,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Fahrtquelle'),
+                    decoration: InputDecoration(labelText: tr('Fahrtquelle')),
                     items: widget.store.sources.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                     onChanged: busy ? null : (value) => setState(() => source = value!),
                   ),
@@ -1069,14 +1078,14 @@ class _TripEditorState extends State<TripEditor> {
               controller: distance,
               enabled: !busy,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Fahrtstrecke (optional)', suffixText: 'km'),
+              decoration: InputDecoration(labelText: tr('Fahrtstrecke (optional)'), suffixText: 'km'),
               validator: (v) => (v ?? '').trim().isNotEmpty && parseKilometers(v!) == null
-                  ? 'Bitte eine Strecke größer als 0 und bis 10.000 km eingeben.' : null,
+                  ? tr('Bitte eine Strecke größer als 0 und bis 10.000 km eingeben.') : null,
             ),
             ],
             const SizedBox(height: 16),
             TextFormField(controller: note, enabled: !busy, maxLength: 250,
-                decoration: const InputDecoration(labelText: 'Notiz (optional)')),
+                decoration: InputDecoration(labelText: tr('Notiz (optional)'))),
                 ],
               ),
             ),
@@ -1122,12 +1131,12 @@ class _FareTypePickerState extends State<FareTypePicker> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-          const Expanded(child: Text('Art auswählen', textAlign: TextAlign.center,
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Abbrechen'))),
+          Expanded(child: Text(tr('Art auswählen'), textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.w700))),
           TextButton(key: const Key('apply-fare-type'),
               onPressed: () => Navigator.pop(context, widget.choices[index]),
-              child: const Text('Fertig')),
+              child: Text(tr('Fertig'))),
         ]),
         const SizedBox(height: 8),
         SizedBox(height: 210, child: CupertinoPicker(

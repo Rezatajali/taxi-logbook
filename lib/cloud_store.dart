@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'expenses.dart';
@@ -225,9 +226,9 @@ class CloudLogbookStore extends LogbookStore {
   @override
   String? get syncError => _error;
   @override
-  String get storageLabel => _error != null ? 'Verbindung prüfen'
-      : _loading ? 'Laden …'
-      : pendingWrites ? 'Synchronisiert …'
+  String get storageLabel => _error != null ? tr('Verbindung prüfen')
+      : _loading ? tr('Laden …')
+      : pendingWrites ? tr('Synchronisiert …')
       : _cached ? 'Offline / Cache' : 'Cloud';
 
   void _notify() { if (!_disposed) notifyListeners(); }

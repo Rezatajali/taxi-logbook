@@ -1,3 +1,4 @@
+import 'l10n.dart';
 import 'pauses.dart';
 
 enum ShiftOrigin { manual, timer, gps }
@@ -6,7 +7,7 @@ class ShiftRecord {
   ShiftRecord({required this.id, required this.start, this.end,
     this.origin = ShiftOrigin.manual}) {
     if (end != null && !end!.isAfter(start)) {
-      throw const FormatException('Das Schichtende muss nach dem Anfang liegen.');
+      throw FormatException(tr('Das Schichtende muss nach dem Anfang liegen.'));
     }
   }
   final String id;
@@ -27,7 +28,7 @@ void validateShift(Iterable<ShiftRecord> shifts, ShiftRecord next) {
   final until = next.end ?? DateTime.utc(2200);
   for (final other in shifts.where((s) => s.id != next.id)) {
     if (next.start.isBefore(other.end ?? DateTime.utc(2200)) && until.isAfter(other.start)) {
-      throw const FormatException('Schichten dürfen sich nicht überschneiden. Bitte Anfang und Ende prüfen.');
+      throw FormatException(tr('Schichten dürfen sich nicht überschneiden. Bitte Anfang und Ende prüfen.'));
     }
   }
 }
@@ -97,13 +98,13 @@ WorkTotals workTotalsForDay(Iterable<ShiftRecord> shifts, Iterable<PauseRecord> 
 
 String? workWarning(WorkTotals totals) {
   if (totals.gross >= const Duration(hours: 12)) {
-    return '12-Stunden-Schicht erreicht. Bitte Schicht beenden und Arbeitszeit prüfen.';
+    return tr('12-Stunden-Schicht erreicht. Bitte Schicht beenden und Arbeitszeit prüfen.');
   }
   if (totals.net >= const Duration(hours: 10)) {
-    return '10 Stunden Arbeitszeit erreicht. Allgemeine Höchstgrenze nach ArbZG; mögliche Sonderregelungen prüfen.';
+    return tr('10 Stunden Arbeitszeit erreicht. Allgemeine Höchstgrenze nach ArbZG; mögliche Sonderregelungen prüfen.');
   }
   if (totals.net > const Duration(hours: 8)) {
-    return 'Mehr als 8 Stunden Arbeitszeit. Eine Verlängerung bis 10 Stunden ist grundsätzlich nur mit Ausgleich zulässig.';
+    return tr('Mehr als 8 Stunden Arbeitszeit. Eine Verlängerung bis 10 Stunden ist grundsätzlich nur mit Ausgleich zulässig.');
   }
   return null;
 }
