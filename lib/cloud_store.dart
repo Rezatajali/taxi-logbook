@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'expenses.dart';
 import 'logbook.dart';
 import 'store.dart';
 import 'pauses.dart';
@@ -39,6 +40,9 @@ abstract class UserLogbookBackend {
   Future<void> saveShift(ShiftRecord shift, {List<PauseRecord> finishedPauses = const []});
   Stream<CloudPauses> watchPauses();
   Future<void> savePause(PauseRecord pause);
+  Stream<List<Expense>> watchExpenses();
+  Future<void> saveExpense(Expense expense);
+  Future<void> deleteExpense(String id);
   Stream<List<String>> watchSources();
   Stream<String> watchDriverNumber();
   Future<void> saveDriverNumber(String number);
@@ -140,6 +144,14 @@ class FirestoreLogbookBackend implements UserLogbookBackend {
   @override
   Future<void> savePause(PauseRecord pause) => user.collection('pauses').doc(pause.id).set(pause.toJson());
   @override
+  Stream<List<Expense>> watchExpenses() => user.collection('expenses')
+    .snapshots().map((snapshot) => parseDocuments(_entries(snapshot), Expense.fromJson).$1);
+  @override
+  Future<void> saveExpense(Expense expense) =>
+      user.collection('expenses').doc(expense.id).set(expense.toJson());
+  @override
+  Future<void> deleteExpense(String id) => user.collection('expenses').doc(id).delete();
+  @override
   Future<void> addSource(String source) => settings.set(
       {'sources': FieldValue.arrayUnion([source])}, SetOptions(merge: true));
 }
@@ -157,6 +169,13 @@ class CloudLogbookStore extends LogbookStore {
   List<ShiftRecord> get shifts => List.unmodifiable(_cloudShifts);
   @override
   bool get shiftsReady => _shiftsReady;
+  List<Expense> _cloudExpenses = [];
+  bool _expensesReady = false;
+  StreamSubscription<List<Expense>>? _expenseSubscription;
+  @override
+  List<Expense> get expenses => List.unmodifiable(_cloudExpenses);
+  @override
+  bool get expensesReady => _expensesReady;
   List<PauseRecord> _cloudPauses = [];
   bool _pausesReady = false;
   bool _pausePending = false;
@@ -218,10 +237,12 @@ class CloudLogbookStore extends LogbookStore {
     final generation = ++_generation;
     _tripSubscription?.cancel();
     _pauseSubscription?.cancel();
+    _expenseSubscription?.cancel();
     _shiftSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();
     _shiftsReady = false;
+    _expensesReady = false;
     _pausesReady = false;
     _loading = true;
     _error = null;
@@ -254,6 +275,12 @@ class CloudLogbookStore extends LogbookStore {
       _skippedShifts = records.skipped;
       _shiftPending = records.pending;
       _shiftsReady = true;
+      _notify();
+    }, onError: failed);
+    _expenseSubscription = backend.watchExpenses().listen((records) {
+      if (!active()) return;
+      _cloudExpenses = records;
+      _expensesReady = true;
       _notify();
     }, onError: failed);
     _pauseSubscription = backend.watchPauses().listen((records) {
@@ -331,6 +358,10 @@ class CloudLogbookStore extends LogbookStore {
     return _write(() => backend.savePause(pause));
   }
   @override
+  Future<void> saveExpense(Expense expense) => _write(() => backend.saveExpense(expense));
+  @override
+  Future<void> deleteExpense(String id) => _write(() => backend.deleteExpense(id));
+  @override
   Future<void> saveTrip(Trip trip) => _write(() => backend.saveTrip(trip), queued: false);
   @override
   Future<void> deleteTrip(String id) => _write(() => backend.deleteTrip(id), queued: false);
@@ -357,6 +388,7 @@ class CloudLogbookStore extends LogbookStore {
     _generation++;
     _tripSubscription?.cancel();
     _pauseSubscription?.cancel();
+    _expenseSubscription?.cancel();
     _shiftSubscription?.cancel();
     _sourceSubscription?.cancel();
     _driverSubscription?.cancel();

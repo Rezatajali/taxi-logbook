@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:taxi_logbook/expenses.dart';
 import 'package:taxi_logbook/logbook.dart';
 import 'package:taxi_logbook/main.dart';
 import 'package:taxi_logbook/store.dart';
@@ -82,6 +83,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('fehlen in der Kasse'), findsOneWidget);
     expect(find.byKey(const Key('statistics')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('Expenses persist locally, are grouped by category and can be deleted', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final store = LogbookStore(prefs)..load();
+    await store.saveExpense(Expense(id: 'f', at: DateTime(2026, 10, 3), cents: 6000, category: ExpenseCategory.fuel));
+    await store.saveExpense(Expense(id: 'w', at: DateTime(2026, 10, 4), cents: 1200, category: ExpenseCategory.wash, note: 'Waschstraße'));
+    await store.saveExpense(Expense(id: 'n', at: DateTime(2026, 11, 1), cents: 500, category: ExpenseCategory.parking));
+    final reloaded = LogbookStore(prefs)..load();
+    final october = expensesInMonth(reloaded.expenses, DateTime(2026, 10));
+    expect(october.map((e) => e.id), ['w', 'f']);
+    expect(expensesByCategory(october), {ExpenseCategory.fuel: 6000, ExpenseCategory.wash: 1200});
+    await reloaded.deleteExpense('f');
+    expect((LogbookStore(prefs)..load()).expenses.map((e) => e.id), unorderedEquals(['w', 'n']));
+    expect(() => Expense(id: 'x', at: DateTime(2026), cents: 0, category: ExpenseCategory.other),
+        throwsFormatException);
+  });
+
+  testWidgets('A driver records fuel costs in Extras', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    SharedPreferences.setMockInitialValues({});
+    final store = LogbookStore(await SharedPreferences.getInstance())..load();
+    await tester.pumpWidget(LogbookApp(store: store));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Extras'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('add-expense')));
+    await tester.tap(find.byKey(const Key('add-expense')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('expense-amount')), '4500');
+    await tester.ensureVisible(find.byKey(const Key('save-expense')));
+    await tester.tap(find.byKey(const Key('save-expense')));
+    await tester.pumpAndSettle();
+    expect(store.expenses.single.cents, 4500);
+    expect(store.expenses.single.category, ExpenseCategory.fuel);
     expect(tester.takeException(), isNull);
   });
 }

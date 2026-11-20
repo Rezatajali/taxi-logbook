@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taxi_logbook/cloud_store.dart';
+import 'package:taxi_logbook/expenses.dart';
 import 'package:taxi_logbook/logbook.dart';
 import 'package:taxi_logbook/store.dart';
 import 'package:taxi_logbook/pauses.dart';
@@ -22,6 +23,14 @@ class FakeBackend implements UserLogbookBackend {
     for (final pause in finishedPauses) { pauses[pause.id] = pause; }
     emit();
   }
+  final expenses = <String, Expense>{};
+  final expenseRecords = StreamController<List<Expense>>.broadcast(sync: true);
+  @override
+  Stream<List<Expense>> watchExpenses() => expenseRecords.stream;
+  @override
+  Future<void> saveExpense(Expense expense) async { expenses[expense.id] = expense; expenseRecords.add(expenses.values.toList()); }
+  @override
+  Future<void> deleteExpense(String id) async { expenses.remove(id); expenseRecords.add(expenses.values.toList()); }
   final pauses = <String, PauseRecord>{};
   final pauseRecords = StreamController<CloudPauses>.broadcast(sync: true);
   @override
@@ -50,7 +59,7 @@ class FakeBackend implements UserLogbookBackend {
   Future<void> deleteTrip(String id) async { trips[id] = markTripDeleted(trips[id]!); emit(); }
   @override
   Future<void> addSource(String name) async { sources.add(name); sourceRecords.add(sources); }
-  Future<void> close() async { await shiftRecords.close(); await pauseRecords.close(); await records.close(); await sourceRecords.close(); await driverRecords.close(); }
+  Future<void> close() async { await shiftRecords.close(); await pauseRecords.close(); await records.close(); await sourceRecords.close(); await driverRecords.close(); await expenseRecords.close(); }
 }
 Trip fare(String id, int cents) => Trip(id: id, at: DateTime(2026, 10, 5),
   cents: cents, source: 'Taxi', payment: PaymentMethod.cash);

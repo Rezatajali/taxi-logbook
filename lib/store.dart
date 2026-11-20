@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'expenses.dart';
 import 'logbook.dart';
 import 'pauses.dart';
 import 'shifts.dart';
@@ -16,6 +17,9 @@ class LogbookStore extends ChangeNotifier {
   List<PauseRecord> _pauses = [];
   List<PauseRecord> get pauses => List.unmodifiable(_pauses);
   bool get pausesReady => true;
+  List<Expense> _expenses = [];
+  List<Expense> get expenses => List.unmodifiable(_expenses);
+  bool get expensesReady => true;
   List<String> _sources = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
   String _driverNumber = '';
   String get driverNumber => _driverNumber;
@@ -70,12 +74,15 @@ class LogbookStore extends ChangeNotifier {
     }
     _pauses = (json['pauses'] as List? ?? []).map((p) => PauseRecord.fromJson(Map<String, dynamic>.from(p as Map))).toList();
     _shifts = (json['shifts'] as List? ?? []).map((v) => ShiftRecord.fromJson(Map<String, dynamic>.from(v as Map))).toList();
+    _expenses = (json['expenses'] as List? ?? []).map((v) => Expense.fromJson(Map<String, dynamic>.from(v as Map))).toList();
     _trips = trips;
     _sources = sources;
     _driverNumber = json['driverNumber'] as String? ?? '';
   }
 
-  Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber, List<PauseRecord>? pauses, List<ShiftRecord>? shifts}) async {
+  Future<void> _persist(List<Trip> trips, List<String> sources, {String? driverNumber, List<PauseRecord>? pauses, List<ShiftRecord>? shifts,
+      List<Expense>? expenses}) async {
+    final nextExpenses = expenses ?? _expenses;
     final nextNumber = driverNumber ?? _driverNumber;
     final nextPauses = pauses ?? _pauses;
     final nextShifts = shifts ?? _shifts;
@@ -88,6 +95,7 @@ class LogbookStore extends ChangeNotifier {
         'version': 3,
         'shifts': nextShifts.map((s) => s.toJson()).toList(),
         'pauses': nextPauses.map((p) => p.toJson()).toList(),
+        'expenses': nextExpenses.map((e) => e.toJson()).toList(),
         'driverNumber': nextNumber,
         'trips': trips.map((t) => t.toJson()).toList(),
         'sources': sources,
@@ -96,6 +104,7 @@ class LogbookStore extends ChangeNotifier {
       // Update the visible state only after persistence succeeds.
       _shifts = nextShifts;
       _pauses = nextPauses;
+      _expenses = nextExpenses;
       _trips = trips;
       _sources = sources;
       _driverNumber = nextNumber;
@@ -114,6 +123,11 @@ class LogbookStore extends ChangeNotifier {
     _trips.map((t) => t.id == id ? markTripDeleted(t) : t).toList(), [..._sources]);
   Future<void> savePause(PauseRecord pause) => _persist([..._trips], [..._sources],
     pauses: [..._pauses.where((p) => p.id != pause.id), pause]);
+
+  Future<void> saveExpense(Expense expense) => _persist([..._trips], [..._sources],
+    expenses: [..._expenses.where((e) => e.id != expense.id), expense]);
+  Future<void> deleteExpense(String id) => _persist([..._trips], [..._sources],
+    expenses: _expenses.where((e) => e.id != id).toList());
 
   Future<void> saveShift(ShiftRecord shift) {
     validateShift(shifts, shift);
@@ -150,6 +164,7 @@ class LogbookStore extends ChangeNotifier {
         'version': 3,
         'shifts': shifts.map((s) => s.toJson()).toList(),
         'pauses': pauses.map((p) => p.toJson()).toList(),
+        'expenses': expenses.map((e) => e.toJson()).toList(),
         'driverNumber': driverNumber,
         'trips': trips.map((t) => t.toJson()).toList(),
         'sources': sources,
