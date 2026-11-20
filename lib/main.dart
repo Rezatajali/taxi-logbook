@@ -17,6 +17,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'extras_page.dart';
 import 'install_screen.dart';
 import 'pause_screen.dart';
 import 'pdf_report.dart';
@@ -276,6 +277,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                     0 => tripsPage(),
                     1 => PausesPanel(store: widget.store),
                     2 => monthPage(),
+                    3 => ExtrasPage(store: widget.store),
                     _ => settingsPage(),
                   },
                 ]),
@@ -302,6 +304,7 @@ class _LogbookHomeState extends State<LogbookHome> {
                   selectedIcon: Icon(Icons.local_taxi), label: 'Fahrten'),
               NavigationDestination(icon: Icon(Icons.pause_circle_outline), label: 'Schichten'),
               NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Monat'),
+              NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: 'Extras'),
               NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profil'),
             ],
           ),
@@ -761,10 +764,15 @@ class _LogbookHomeState extends State<LogbookHome> {
             ),
           ],
         )),
-        panel('Kilometer optional', const Text('Du kannst jede Fahrt ohne '
-            'Kilometerangabe speichern. Die Kennzahl €/km verwendet ausschließlich '
-            'Fahrten mit eingetragener Strecke und enthält keine Leerfahrten. '
-            'GPS und Kilometerstände für die ganze Schicht folgen später.')),
+        Card(child: SwitchListTile(
+          key: const Key('kilometers-switch'),
+          secondary: const Icon(Icons.route_outlined),
+          title: const Text('Kilometer pro Fahrt erfassen'),
+          subtitle: const Text('Standardmäßig aus. Eingeschaltet erscheint im '
+              'Fahrtformular ein Feld für die Strecke.'),
+          value: widget.store.kilometersEnabled,
+          onChanged: (value) => widget.store.setKilometersEnabled(value),
+        )),
       ]);
 }
 
@@ -841,6 +849,7 @@ class TripEditor extends StatefulWidget {
 class _TripEditorState extends State<TripEditor> {
   final form = GlobalKey<FormState>();
   late final TextEditingController amount;
+  late final TextEditingController tip;
   late final TextEditingController distance;
   late final TextEditingController note;
   late DateTime at;
@@ -885,6 +894,8 @@ class _TripEditorState extends State<TripEditor> {
     tripId = trip?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     amount = TextEditingController(text: trip == null ? ''
         : (trip.cents / 100).toStringAsFixed(2).replaceAll('.', ','));
+    tip = TextEditingController(text: (trip?.tipCents ?? 0) == 0 ? ''
+        : (trip!.tipCents / 100).toStringAsFixed(2).replaceAll('.', ','));
     distance = TextEditingController(text: trip?.kilometers == null ? ''
         : trip!.kilometers.toString().replaceAll('.', ','));
     note = TextEditingController(text: trip?.note ?? '');
@@ -898,6 +909,7 @@ class _TripEditorState extends State<TripEditor> {
   @override
   void dispose() {
     amount.dispose();
+    tip.dispose();
     distance.dispose();
     note.dispose();
     super.dispose();
@@ -911,7 +923,7 @@ class _TripEditorState extends State<TripEditor> {
         id: tripId,
         at: at,
         cents: parseCents(amount.text)!,
-        tipCents: widget.trip?.tipCents ?? 0,
+        tipCents: tip.text.trim().isEmpty ? 0 : parseCents(tip.text)!,
         source: source,
         payment: payment,
         kilometers: parseKilometers(distance.text),
@@ -995,6 +1007,18 @@ class _TripEditorState extends State<TripEditor> {
                 ),
               )),
             ]),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key('tip'),
+              controller: tip,
+              enabled: !busy,
+              keyboardType: TextInputType.number,
+              inputFormatters: const [CentsInputFormatter()],
+              decoration: const InputDecoration(labelText: 'Trinkgeld (optional)',
+                suffixText: '€', prefixIcon: Icon(Icons.volunteer_activism_outlined)),
+              validator: (v) => (v ?? '').trim().isNotEmpty && parseCents(v!) == null
+                  ? 'Trinkgeld größer als 0 oder leer lassen.' : null,
+            ),
             const SizedBox(height: 16),
             Wrap(spacing: 12, runSpacing: 8, children: [
               OutlinedButton.icon(key: const Key('trip-date'),
@@ -1060,6 +1084,7 @@ class _TripEditorState extends State<TripEditor> {
                       ChoiceChip(label: Text(method.label), selected: payment == method,
                           onSelected: busy ? null : (_) => setState(() => payment = method)),
                   ]),
+            if (widget.store.kilometersEnabled || widget.trip?.kilometers != null) ...[
             const SizedBox(height: 16),
             TextFormField(
               controller: distance,
@@ -1069,6 +1094,7 @@ class _TripEditorState extends State<TripEditor> {
               validator: (v) => (v ?? '').trim().isNotEmpty && parseKilometers(v!) == null
                   ? 'Bitte eine Strecke größer als 0 und bis 10.000 km eingeben.' : null,
             ),
+            ],
             const SizedBox(height: 16),
             TextFormField(controller: note, enabled: !busy, maxLength: 250,
                 decoration: const InputDecoration(labelText: 'Notiz (optional)')),

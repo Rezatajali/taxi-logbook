@@ -196,6 +196,15 @@ class TripSummary {
     return measuredCents / 100 / totalKilometers;
   }
 
+  /// Tips per source (Uber, Bolt, Taxi …), only sources with tips.
+  Map<String, int> get tipsBySource {
+    final result = <String, int>{};
+    for (final trip in trips.where((t) => t.tipCents > 0)) {
+      result.update(trip.source, (v) => v + trip.tipCents, ifAbsent: () => trip.tipCents);
+    }
+    return result;
+  }
+
   Map<String, int> get bySource {
     final result = <String, int>{};
     for (final trip in trips) {

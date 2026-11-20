@@ -19,6 +19,13 @@ class LogbookStore extends ChangeNotifier {
   List<String> _sources = ['Taxi', 'Uber', 'Bolt', 'FREENOW'];
   String _driverNumber = '';
   String get driverNumber => _driverNumber;
+  /// Kilometers per fare are optional and hidden unless the driver turns them on.
+  static const kilometersKey = 'kilometers_enabled';
+  bool get kilometersEnabled => preferences.getBool(kilometersKey) ?? false;
+  Future<void> setKilometersEnabled(bool value) async {
+    await preferences.setBool(kilometersKey, value);
+    notifyListeners();
+  }
   String get driverLabel => driverNumber.isEmpty ? 'Fahrer' : 'Fahrer $driverNumber';
   bool saving = false;
 
