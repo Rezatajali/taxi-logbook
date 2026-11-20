@@ -119,6 +119,18 @@ class Trip {
 bool sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
+/// Monday of the week that contains [day].
+DateTime weekStart(DateTime day) => DateTime(day.year, day.month, day.day - (day.weekday - 1));
+
+/// Revenue of the 7 working days starting at [start] (Monday).
+int weekRevenue(Iterable<Trip> trips, DateTime start, [Iterable<ShiftRecord> shifts = const []]) {
+  final end = DateTime(start.year, start.month, start.day + 7);
+  return TripSummary(trips.where((t) {
+    final day = workDayOf(t.at, shifts);
+    return !day.isBefore(start) && day.isBefore(end);
+  }), shifts: shifts).totalCents;
+}
+
 /// A forgotten running shift must not pull fares of later days into it.
 const maxOpenShift = Duration(hours: 24);
 
