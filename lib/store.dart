@@ -31,6 +31,13 @@ class LogbookStore extends ChangeNotifier {
     await preferences.setBool(kilometersKey, value);
     notifyListeners();
   }
+  /// Optional daily revenue goal in cents (0 = off), stored per device.
+  static const dailyGoalKey = 'daily_goal_cents';
+  int get dailyGoalCents => preferences.getInt(dailyGoalKey) ?? 0;
+  Future<void> setDailyGoalCents(int cents) async {
+    await preferences.setInt(dailyGoalKey, cents);
+    notifyListeners();
+  }
   String get driverLabel => driverNumber.isEmpty ? tr('Fahrer') : 'Fahrer $driverNumber';
   bool saving = false;
 

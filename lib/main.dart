@@ -18,6 +18,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'onboarding_screen.dart';
 import 'legal_screen.dart';
 import 'palette.dart';
 import 'extras_page.dart';
@@ -54,7 +55,8 @@ Future<void> main() async {
         createStore: (account) => CloudLogbookStore(store.preferences,
           FirestoreLogbookBackend(FirebaseFirestore.instance, account.uid)),
         homeBuilder: (data, account, exit, deleteAccount) => LogbookHome(store: data,
-          accountEmail: account?.email, onExit: exit, onDeleteAccount: deleteAccount),
+          accountEmail: account?.email, onExit: exit, onDeleteAccount: deleteAccount,
+          showOnboarding: account != null),
       );
     }
     runApp(LogbookApp(store: store, home: home));
@@ -113,7 +115,9 @@ class LogbookApp extends StatelessWidget {
 
 class LogbookHome extends StatefulWidget {
   const LogbookHome({super.key, required this.store, this.accountEmail, this.onExit,
-    this.onDeleteAccount});
+    this.onDeleteAccount, this.showOnboarding = false});
+  /// Show the short introduction once per device (signed-in drivers).
+  final bool showOnboarding;
   final String? accountEmail;
   final VoidCallback? onExit;
   final Future<void> Function(String password)? onDeleteAccount;
@@ -139,6 +143,14 @@ class _LogbookHomeState extends State<LogbookHome> {
     super.initState();
     widget.store.addListener(updateWorkTimer);
     updateWorkTimer();
+    if (widget.showOnboarding && OnboardingScreen.shouldShow(widget.store.preferences)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.push(context, MaterialPageRoute<void>(fullscreenDialog: true,
+            builder: (_) => const OnboardingScreen()));
+        }
+      });
+    }
   }
   @override
   void didUpdateWidget(covariant LogbookHome oldWidget) {
@@ -194,7 +206,7 @@ class _LogbookHomeState extends State<LogbookHome> {
       .showSnackBar(SnackBar(content: Text(text)));
 
   Future<void> editTrip([Trip? trip]) async {
-    await showModalBottomSheet<void>(
+    final created = await showModalBottomSheet<Trip>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -202,6 +214,28 @@ class _LogbookHomeState extends State<LogbookHome> {
       constraints: const BoxConstraints(maxWidth: 640),
       builder: (_) => TripEditor(store: widget.store, trip: trip, initialDate: tab == 0 ? day : null),
     );
+    if (created != null && mounted) offerShiftStart(created);
+  }
+
+  /// After a new fare outside any shift, offer to start a shift (#3).
+  void offerShiftStart(Trip trip) {
+    final store = widget.store;
+    if (!store.shiftsReady || !store.ready) return;
+    final now = DateTime.now();
+    final inShift = store.shifts.any((s) => s.running ||
+        (!trip.at.isBefore(s.start) && !trip.at.isAfter(s.end ?? now)));
+    // Only for fares of the last 12 hours; older entries are corrections.
+    if (inShift || now.difference(trip.at).abs() > const Duration(hours: 12)) return;
+    final start = trip.at.isAfter(now) ? now : trip.at;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      key: const Key('shift-reminder'),
+      duration: const Duration(seconds: 8),
+      content: Text(tr('Keine Schicht aktiv. Schicht jetzt starten?')),
+      action: SnackBarAction(label: tr('Schicht anfangen'), onPressed: () {
+        store.saveShift(ShiftRecord(id: 'shift-${now.microsecondsSinceEpoch}',
+          start: start, origin: ShiftOrigin.timer)).catchError((_) {});
+      }),
+    ));
   }
 
   @override
@@ -505,6 +539,7 @@ class _LogbookHomeState extends State<LogbookHome> {
         (tr('Davon bar'), money(daily.cashCents), Icons.account_balance_wallet_outlined),
         (tr('Uber Bar'), money(daily.uberCashCents), Icons.local_taxi_outlined),
       ]),
+      dailyGoal(daily.totalCents),
       const SizedBox(height: 16),
       Theme(data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(key: const Key('fare-filters'),
@@ -575,6 +610,7 @@ class _LogbookHomeState extends State<LogbookHome> {
             onPressed: () => setState(() => month = DateTime(month.year, month.month + 1))),
       ]),
       const SizedBox(height: 12),
+      weekCompare(),
       heroCard(tr('Monatsumsatz'), summary.totalCents,
           '${summary.trips.length} Fahrten · ${summary.workingDays} Tage mit Fahrten'),
       metrics([
@@ -668,6 +704,83 @@ class _LogbookHomeState extends State<LogbookHome> {
     }
   }
 
+  Future<void> changeDailyGoal() async {
+    final store = widget.store;
+    final controller = TextEditingController(text: store.dailyGoalCents == 0 ? ''
+        : (store.dailyGoalCents / 100).toStringAsFixed(2).replaceAll('.', ','));
+    final value = await showDialog<String>(context: context, builder: (dialogContext) => AlertDialog(
+      title: Text(tr('Tagesziel')),
+      content: TextField(key: const Key('daily-goal-input'), controller: controller, autofocus: true,
+        keyboardType: TextInputType.number, inputFormatters: const [CentsInputFormatter()],
+        decoration: InputDecoration(labelText: tr('Betrag'), suffixText: '€',
+          helperText: tr('Leer lassen zum Ausschalten.'))),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text(tr('Abbrechen'))),
+        FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text),
+          child: Text(tr('Speichern'))),
+      ],
+    ));
+    if (value == null || !mounted) return;
+    await store.setDailyGoalCents(value.trim().isEmpty ? 0 : (parseCents(value) ?? 0));
+  }
+
+  /// Progress toward the daily goal on the Fahrten page (#4).
+  Widget dailyGoal(int revenue) {
+    final goal = widget.store.dailyGoalCents;
+    if (goal <= 0) return const SizedBox.shrink();
+    final reached = revenue >= goal;
+    return Container(
+      key: const Key('daily-goal'),
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(18)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(reached ? Icons.emoji_events : Icons.flag_outlined, color: reached ? palette.money : primary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(reached ? tr('Tagesziel erreicht!') : tr('Tagesziel'),
+            style: const TextStyle(fontWeight: FontWeight.w800))),
+          Text('${money(revenue)} / ${money(goal)}', style: TextStyle(color: muted)),
+        ]),
+        const SizedBox(height: 10),
+        ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(
+          value: (revenue / goal).clamp(0, 1).toDouble(), minHeight: 12,
+          color: reached ? palette.money : primary,
+          backgroundColor: primary.withValues(alpha: 0.15))),
+      ]),
+    );
+  }
+
+  /// This week vs. last week on the month page (#5).
+  Widget weekCompare() {
+    final store = widget.store;
+    final start = weekStart(DateTime.now());
+    final thisWeek = weekRevenue(store.trips, start, store.shifts);
+    final lastWeek = weekRevenue(store.trips, DateTime(start.year, start.month, start.day - 7), store.shifts);
+    final change = lastWeek == 0 ? null : ((thisWeek - lastWeek) * 100 / lastWeek).round();
+    return Container(
+      key: const Key('week-compare'),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Diese Woche'), style: TextStyle(color: muted, fontSize: 12)),
+          FittedBox(fit: BoxFit.scaleDown, child: Text(money(thisWeek),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ink))),
+        ])),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Letzte Woche'), style: TextStyle(color: muted, fontSize: 12)),
+          FittedBox(fit: BoxFit.scaleDown, child: Text(money(lastWeek),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: muted))),
+        ])),
+        if (change != null) Text('${change >= 0 ? '▲' : '▼'} ${change.abs()} %',
+          style: TextStyle(fontWeight: FontWeight.w800,
+            color: change >= 0 ? palette.money : Theme.of(context).colorScheme.error)),
+      ]),
+    );
+  }
+
   Widget settingsPage() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         title(tr('Dein Logbuch'), tr('Deine Fahrernummer und dein Konto.')),
         panel(tr('Sprache'), Wrap(spacing: 8, runSpacing: 8, children: [
@@ -697,6 +810,12 @@ class _LogbookHomeState extends State<LogbookHome> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.push(context,
             MaterialPageRoute<void>(builder: (_) => const InstallScreen())))),
+        Card(child: ListTile(key: const Key('daily-goal-setting'),
+          leading: const Icon(Icons.flag_outlined),
+          title: Text(tr('Tagesziel')),
+          subtitle: Text(widget.store.dailyGoalCents == 0 ? tr('Aus') : money(widget.store.dailyGoalCents)),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: changeDailyGoal)),
         panel(tr('Deine Fahrernummer'), Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.store.driverNumber.isEmpty ? tr('Noch keine Nummer eingetragen') : widget.store.driverLabel,
@@ -923,7 +1042,7 @@ class _TripEditorState extends State<TripEditor> {
     if (busy || !form.currentState!.validate()) return;
     setState(() { busy = true; error = null; });
     try {
-      await widget.store.saveTrip(Trip(
+      final saved = Trip(
         id: tripId,
         at: at,
         cents: parseCents(amount.text)!,
@@ -932,8 +1051,9 @@ class _TripEditorState extends State<TripEditor> {
         payment: payment,
         kilometers: parseKilometers(distance.text),
         note: note.text.trim(),
-      ));
-      if (mounted) Navigator.pop(context);
+      );
+      await widget.store.saveTrip(saved);
+      if (mounted) Navigator.pop(context, widget.trip == null ? saved : null);
     } catch (_) {
       if (mounted) {
         setState(() {
