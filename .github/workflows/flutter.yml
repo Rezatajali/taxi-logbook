@@ -44,6 +44,16 @@ jobs:
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials"
           trap 'rm -f "$credentials"' EXIT
           export GOOGLE_APPLICATION_CREDENTIALS="$credentials"
+          # Check the key's shape without printing any secret value.
+          node -e '
+            let key;
+            try { key = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); }
+            catch { console.log("::error::Secret ist kein gültiges JSON. Bitte die komplette JSON-Datei einfügen."); process.exit(1); }
+            const ok = key.type === "service_account" && key.private_key && key.client_email;
+            console.log("type:", key.type, "| project_id:", key.project_id, "| private_key vorhanden:", Boolean(key.private_key));
+            if (!ok) { console.log("::error::Secret ist kein Service-Account-Schlüssel (Firebase > Projekteinstellungen > Dienstkonten)."); process.exit(1); }
+            if (key.project_id !== "taxi-logbook-d1104") { console.log("::error::Schlüssel gehört zu einem anderen Projekt."); process.exit(1); }
+          ' "$credentials"
           npx --yes firebase-tools@15.34.2 deploy --only hosting,firestore:rules \
             --project taxi-logbook-d1104 --non-interactive
           echo "::notice::Veröffentlicht: https://taxi-logbook-d1104.web.app"
