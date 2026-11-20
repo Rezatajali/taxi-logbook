@@ -17,6 +17,7 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
+import 'install_screen.dart';
 import 'pause_screen.dart';
 import 'pdf_report.dart';
 import 'package:printing/printing.dart';
@@ -696,6 +697,12 @@ class _LogbookHomeState extends State<LogbookHome> {
           trailing: const Icon(Icons.chevron_right),
           onTap: () => Navigator.push(context,
             MaterialPageRoute<void>(builder: (_) => const HelpScreen())))),
+        Card(child: ListTile(leading: const Icon(Icons.add_to_home_screen),
+          title: const Text('App aufs Handy holen'),
+          subtitle: const Text('Symbol auf dem Home-Bildschirm – iPhone und Android'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(context,
+            MaterialPageRoute<void>(builder: (_) => const InstallScreen())))),
         panel('Deine Fahrernummer', Column(
           crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.store.driverNumber.isEmpty ? 'Noch keine Nummer eingetragen' : widget.store.driverLabel,
