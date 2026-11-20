@@ -80,7 +80,7 @@ class _ExtrasPageState extends State<ExtrasPage> {
   Widget bar(String label, int cents, int max) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
     child: Row(children: [
-      SizedBox(width: 44, child: Text(label)),
+      SizedBox(width: 56, child: Text(label)),
       Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(
         value: max == 0 ? 0 : cents / max, minHeight: 10,
         backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)))),

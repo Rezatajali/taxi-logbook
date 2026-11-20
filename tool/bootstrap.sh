@@ -24,8 +24,19 @@ index.write_text(index.read_text().replace('<title>taxi_logbook</title>', '<titl
 web_manifest = Path('web/manifest.json')
 data = json.loads(web_manifest.read_text())
 data.update(name='Taxi Logbuch', short_name='Logbuch', description='Dein Fahrten- und Umsatzbuch',
-    background_color='#121126', theme_color='#121126')
+    background_color='#16181B', theme_color='#16181B')
 web_manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+# App icons (taxi roof sign) from branding/ replace Flutter's default logo.
+import shutil
+for name in ['Icon-192.png', 'Icon-512.png', 'Icon-maskable-192.png', 'Icon-maskable-512.png']:
+    shutil.copy(f'branding/{name}', f'web/icons/{name}')
+shutil.copy('branding/favicon.png', 'web/favicon.png')
+shutil.copy('branding/apple-touch-icon.png', 'web/icons/apple-touch-icon.png')
+html = index.read_text()
+html = html.replace('href="icons/Icon-192.png"', 'href="icons/apple-touch-icon.png"')
+if 'name="theme-color"' not in html:
+    html = html.replace('</head>', '  <meta name="theme-color" content="#16181B">\n</head>')
+index.write_text(html)
 # Cloud Flutter plugins require Android API 23 or later.
 gradle = Path('android/app/build.gradle.kts')
 android_build = gradle.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 23')

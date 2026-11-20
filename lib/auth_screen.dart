@@ -146,12 +146,9 @@ class _LoginScreenState extends State<LoginScreen> {
         child: AutofillGroup(child: Form(key: form, child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(child: Container(width: 80, height: 80,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25))),
-              child: Icon(Icons.local_taxi_rounded, size: 40, color: Theme.of(context).colorScheme.primary))),
+            Center(child: ClipRRect(borderRadius: BorderRadius.circular(24),
+              child: Image.asset('branding/logo.png', width: 96, height: 96,
+                semanticLabel: 'Taxi Logbuch'))),
             const SizedBox(height: 20),
             Text(reset ? 'Passwort zurücksetzen' : register ? 'Konto erstellen' : 'Taxi Logbuch',
               textAlign: TextAlign.center,
