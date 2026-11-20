@@ -18,7 +18,6 @@ import 'logbook.dart';
 import 'store.dart';
 import 'currency_input.dart';
 import 'help_screen.dart';
-import 'onboarding_screen.dart';
 import 'legal_screen.dart';
 import 'palette.dart';
 import 'extras_page.dart';
@@ -56,7 +55,8 @@ Future<void> main() async {
           FirestoreLogbookBackend(FirebaseFirestore.instance, account.uid)),
         homeBuilder: (data, account, exit, deleteAccount) => LogbookHome(store: data,
           accountEmail: account?.email, onExit: exit, onDeleteAccount: deleteAccount,
-          showOnboarding: account != null),
+          onChangePassword: account == null ? null
+              : () => FirebaseAuth.instance.sendPasswordResetEmail(email: account.email)),
       );
     }
     runApp(LogbookApp(store: store, home: home));
@@ -115,9 +115,9 @@ class LogbookApp extends StatelessWidget {
 
 class LogbookHome extends StatefulWidget {
   const LogbookHome({super.key, required this.store, this.accountEmail, this.onExit,
-    this.onDeleteAccount, this.showOnboarding = false});
-  /// Show the short introduction once per device (signed-in drivers).
-  final bool showOnboarding;
+    this.onDeleteAccount, this.onChangePassword});
+  /// Sends a password-reset email to the signed-in driver.
+  final Future<void> Function()? onChangePassword;
   final String? accountEmail;
   final VoidCallback? onExit;
   final Future<void> Function(String password)? onDeleteAccount;
@@ -143,14 +143,6 @@ class _LogbookHomeState extends State<LogbookHome> {
     super.initState();
     widget.store.addListener(updateWorkTimer);
     updateWorkTimer();
-    if (widget.showOnboarding && OnboardingScreen.shouldShow(widget.store.preferences)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.push(context, MaterialPageRoute<void>(fullscreenDialog: true,
-            builder: (_) => const OnboardingScreen()));
-        }
-      });
-    }
   }
   @override
   void didUpdateWidget(covariant LogbookHome oldWidget) {
@@ -668,6 +660,29 @@ class _LogbookHomeState extends State<LogbookHome> {
     }
   }
 
+  /// Password change: Firebase emails a link where the driver sets a new password.
+  Future<void> changePassword() async {
+    final email = widget.accountEmail!;
+    final ok = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: Text(tr('Passwort ändern')),
+      content: Text('${tr('Wir senden dir einen Link zum Festlegen eines neuen Passworts an:')}\n\n$email'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(tr('Abbrechen'))),
+        FilledButton(key: const Key('send-password-link'),
+          onPressed: () => Navigator.pop(dialogContext, true), child: Text(tr('Link senden'))),
+      ],
+    ));
+    if (ok != true || !mounted) return;
+    try {
+      await widget.onChangePassword!();
+      if (mounted) {
+        message(tr('Link gesendet. Bitte E-Mail öffnen (auch Spam prüfen) und dort ein neues Passwort festlegen.'));
+      }
+    } catch (error) {
+      if (mounted) message(authError(error));
+    }
+  }
+
   Future<void> changeDailyGoal() async {
     final store = widget.store;
     final controller = TextEditingController(text: store.dailyGoalCents == 0 ? ''
@@ -796,6 +811,12 @@ class _LogbookHomeState extends State<LogbookHome> {
             OutlinedButton.icon(onPressed: widget.store.saving || widget.store.pendingWrites
               ? null : widget.onExit, icon: const Icon(Icons.logout),
               label: Text(widget.store.isCloud ? tr('Abmelden') : tr('Zur Anmeldung'))),
+            if (widget.onChangePassword != null && widget.accountEmail != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(key: const Key('change-password'),
+                onPressed: changePassword,
+                icon: const Icon(Icons.lock_reset_outlined), label: Text(tr('Passwort ändern'))),
+            ],
             if (widget.onDeleteAccount != null) ...[
               const SizedBox(height: 8),
               TextButton.icon(key: const Key('delete-account'),

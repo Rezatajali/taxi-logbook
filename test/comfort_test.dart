@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:taxi_logbook/logbook.dart';
 import 'package:taxi_logbook/main.dart';
-import 'package:taxi_logbook/onboarding_screen.dart';
 import 'package:taxi_logbook/store.dart';
 
 Future<LogbookStore> freshStore([Map<String, Object> values = const {}]) async {
@@ -58,19 +57,5 @@ void main() {
     await tester.tap(find.text('Schicht anfangen').last);
     await tester.pumpAndSettle();
     expect(store.shifts.single.running, isTrue);
-  });
-
-  testWidgets('Onboarding shows once after sign-in and can be finished', (tester) async {
-    phone(tester);
-    final store = await freshStore();
-    await tester.pumpWidget(LogbookApp(store: store, home: LogbookHome(store: store, showOnboarding: true)));
-    await tester.pumpAndSettle();
-    expect(find.text('Fahrt in Sekunden erfassen'), findsOneWidget);
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.byKey(const Key('onboarding-next')));
-      await tester.pumpAndSettle();
-    }
-    expect(find.text('Deine Fahrten'), findsOneWidget);
-    expect(OnboardingScreen.shouldShow(store.preferences), isFalse);
   });
 }
