@@ -54,8 +54,8 @@ jobs:
             if (!ok) { console.log("::error::Secret ist kein Service-Account-Schlüssel (Firebase > Projekteinstellungen > Dienstkonten)."); process.exit(1); }
             if (key.project_id !== "taxi-logbook-d1104") { console.log("::error::Schlüssel gehört zu einem anderen Projekt."); process.exit(1); }
           ' "$credentials"
-          npx --yes firebase-tools@15.34.2 deploy --only hosting,firestore:rules \
-            --project taxi-logbook-d1104 --non-interactive
+          npm install --no-save --no-package-lock google-auth-library@9.15.1
+          node tool/deploy-firebase.mjs
           echo "::notice::Veröffentlicht: https://taxi-logbook-d1104.web.app"
       - name: Web-Artefakt sichern
         # Artifact storage can run full; a missing download must not fail the build.
