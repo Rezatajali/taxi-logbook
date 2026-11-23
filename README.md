@@ -1,137 +1,132 @@
-# Taxi Logbuch
+<p align="center">
+  <img src="branding/logo.png" alt="Taxi Logbuch logo" width="120">
+</p>
 
-Deutschsprachiger Flutter-Prototyp für die manuelle Erfassung von Taxifahrten.
-Eine Codebasis für Android und Web; iPhone-Nutzer verwenden die veröffentlichte Webversion.
+<h1 align="center">Taxi Logbuch</h1>
 
-## Funktionen der ersten Version
+<p align="center">
+  A Flutter app that helps taxi drivers track their fares, shifts and earnings in one place.<br>
+  <b>Flutter · Dart · Firebase Auth · Cloud Firestore · PDF reports · GitHub Actions</b>
+</p>
 
-Dunkles Dashboard mit grünen Diagrammen. In **Fahrten → Fahrt erfassen**
-steht neben dem Betrag eine scrollbare Auswahl für Bar, Uber, Uber Bar, Karte, Rechnung,
-Bolt und FREENOW. Über „Quelle / Zahlung anpassen“ sind Kombinationen wie Uber + Bar möglich.
-Fahrten gruppiert einzelne Fahrten nach Datum. Unter Schichten werden Schichtanfang, Schichtende und Pausen erfasst.
+---
 
-- Fahrpreis in Euro, auf ganze Cent genau gespeichert; Ziffern werden als Cent eingegeben (2270 → 22,70 €).
-- Fahrtquelle (Taxi, Uber, Bolt, FREENOW oder eigene Quelle) **getrennt** von Zahlungsart (Bar, Karte, Rechnung, Über Plattform).
-- Datum/Uhrzeit, optionale Fahrtstrecke und Notiz.
-- Fahrten bearbeiten (gelb) und nach Bestätigung als gelöscht markieren (rot, durchgestrichen). Alte Werte bleiben mit Zeitpunkt im Änderungsverlauf; gelöschte Fahrten zählen nicht zum Umsatz.
-- Pausen mit Start-/Stop-Timer oder manuell mit Beginn und Ende. Laufende Timer bleiben beim Schließen erhalten; Tageswerte teilen Pausen über Mitternacht auf und zählen überlappende Zeiten einmal.
-- Tagesfilter, Quellenfilter und Zahlungsfilter.
-- Tagesumsatz, Barumsatz, Monatsumsatz, Durchschnitt je Tag mit Fahrten und anklickbares Tagesdiagramm.
-- €/km nur aus Fahrten mit eingetragener Strecke. Unbekannte Strecken und Leerfahrten werden nicht berücksichtigt.
-- Lokale Speicherung und JSON-Export in die Zwischenablage.
+## The problem
 
-## Status
+Taxi drivers in Germany often work for several platforms at once: classic taxi rides, Uber, Bolt, FREENOW, plus cash and card payments. At the end of a shift they usually don't know exactly:
 
-Die Webversion hat E-Mail/Passwort-Anmeldung, Registrierung mit Passwortbestätigung,
-„Passwort vergessen?“ und Cloud Firestore für einzelne Fahrten je Fahrer.
-Die vom Benutzer eingerichteten Zugriffsregeln werden im echten Firebase-Projekt
-mit zwei temporären Konten im CI geprüft. Die Zustellung einer Reset-Mail muss
-mit einer eigenen erreichbaren E-Mail-Adresse abschließend geprüft werden.
+- how much they earned today, this week and this month,
+- how much came in as **cash** versus through a **platform**,
+- how many hours they actually worked after breaks,
+- what their **average per day** is.
 
-Deutliche Bearbeiten-/Löschen-Schaltflächen stehen direkt an jeder Fahrt.
-Der Speichern-Knopf im Fahrtformular steht vor den optionalen Feldern.
-Lokale Alt-Daten sind über „Lokale Vorschau / bisherige Einträge“ weiter erreichbar;
-sie werden nicht automatisch einem neuen Konto zugeordnet.
+**Taxi Logbuch** answers these questions. Drivers enter each fare in a few taps and get daily and monthly statistics plus a printable monthly PDF report.
 
-**Android-Test-APK bleibt lokal**, bis eine Android-App im Firebase-Projekt
-registriert und deren eigene Konfiguration ergänzt ist. Die Web-App-ID wird
-nicht für Android zweckentfremdet. GPS und Kilometerstände für vollständige Schichten folgen später. Arbeitszeiten werden manuell erfasst. Umsatz ist vor Provisionen, Steuern und
-Fahrzeugkosten, kein Nettogewinn.
+## Features
 
-## Lokal starten
+**Fares**
+- Enter a fare amount in cents (`2270` becomes `22,70 €`), so there are no rounding errors
+- Fare **source** (Taxi, Uber, Bolt, FREENOW, custom) is stored separately from **payment method** (cash, card, invoice, via platform), and combinations such as *Uber + cash* are supported
+- Optional tip, distance and note for each fare
+- Edit and soft-delete fares with a change history, so deleted fares no longer count toward revenue
 
-Flutter **3.35.7** und die passende Android-/Browser-Entwicklungsumgebung installieren.
+**Shifts & breaks**
+- Start and stop shifts and breaks with a timer, or enter them manually
+- Night shifts are split correctly at midnight, and overlapping intervals are counted only once
+- Working-time warnings (over 8 h, 10 h and 12 h) based on the German Working Hours Act (ArbZG)
+
+**Statistics & reports**
+- Daily revenue, cash share, monthly revenue and average per working day
+- Weekly comparison and an optional daily goal
+- Filters by day, source and payment method
+- Cash count and expense tracking (*Extras*)
+- **Monthly PDF report** ready to print or share
+
+**Accounts & app**
+- Email/password registration, login, password reset and password change
+- Each driver can access only their own data, enforced by Firestore security rules
+- Account deletion, privacy policy and imprint (GDPR-ready)
+- 5 languages: German, English, Persian, Turkish and Arabic (including right-to-left layout)
+- Light and dark theme
+- Installable as a web app (PWA) on Android and iPhone, with an in-app install guide and a QR code card
+
+## Tech stack
+
+| Area | Technology |
+|---|---|
+| UI | Flutter (Material 3), custom theme, `intl` localization |
+| State | `ChangeNotifier`-based stores (`LogbookStore`, `CloudLogbookStore`) |
+| Backend | Firebase Authentication, Cloud Firestore |
+| Offline | `shared_preferences` for local data; Firestore offline writes |
+| Reports | `pdf` and `printing` packages |
+| Quality | `flutter_lints`, 13 test files (unit and widget tests) |
+| CI/CD | GitHub Actions: analyze → test → live Firestore rule check → web build → Firebase Hosting deploy |
+
+## Architecture
+
+```
+lib/
+├── main.dart            App shell, navigation (Fares · Shifts · Month · Profile)
+├── logbook.dart         Domain model: Trip, PaymentMethod, revenue and summary logic
+├── shifts.dart          Shifts, interval merging, working-time totals
+├── pauses.dart          Break records
+├── store.dart           LogbookStore (ChangeNotifier), local persistence
+├── cloud_store.dart     Firestore backend behind the UserLogbookBackend interface
+├── auth_service.dart    DriverAuth interface + FirebaseDriverAuth implementation
+├── pdf_report.dart      Monthly PDF report
+├── l10n*.dart           Translations (de, en, fa, tr, ar)
+└── *_screen.dart        UI screens (auth, help, install, legal, pauses …)
+```
+
+```
+ UI (Widgets) ──listens──▶ LogbookStore (ChangeNotifier)
+                               │
+                               ▼
+                     UserLogbookBackend (interface)
+                               │
+                 ┌─────────────┴─────────────┐
+                 ▼                           ▼
+        Local storage               FirestoreLogbookBackend
+     (shared_preferences)       users/{uid}/trips|shifts|pauses
+```
+
+- **The business logic is pure Dart** (`logbook.dart`, `shifts.dart`) and has no Flutter dependency, which makes it easy to unit-test.
+- **Backends sit behind interfaces** (`UserLogbookBackend`, `DriverAuth`), so tests can use fakes instead of Firebase.
+- **Money is stored as integer cents**, never as a `double`.
+- **Security rules** allow only known paths and validate field names, types and sizes. CI checks them against the real Firebase project using two temporary accounts.
+
+## Screenshots
+
+| Fares | Shifts | Month | PDF report |
+|---|---|---|---|
+| _coming soon_ | _coming soon_ | _coming soon_ | _coming soon_ |
+
+## Getting started
+
+Requires Flutter **3.35.7**.
 
 ```bash
-bash tool/bootstrap.sh
+bash tool/bootstrap.sh     # creates missing android/ and web/ folders
+flutter pub get
 flutter run -d chrome
 ```
 
-Das Bootstrap-Skript erzeugt nur fehlende Android-/Web-Plattformverzeichnisse mit
-dem installierten Flutter SDK und lässt die Anwendungsdateien unverändert.
+Run checks:
 
 ```bash
 flutter analyze
 flutter test
 flutter build web --release
-flutter build apk --debug
 ```
 
-## GitHub Actions
+Firebase setup and detailed developer notes (in German): [`config/README.md`](config/README.md) and [`docs/DEVELOPMENT.de.md`](docs/DEVELOPMENT.de.md).
 
-Der Workflow prüft Quellcode und Tests und baut danach Web sowie eine Android-Test-APK.
-In GitHub unter **Actions → Flutter prüfen und bauen → letzter erfolgreicher Lauf → Artifacts**
-stehen die ZIP-Dateien zum Download bereit. Das Web-Artefakt ist noch keine veröffentlichte URL.
+## Roadmap
 
-Die Debug-APK ist zum Testen vorgesehen. Für eine dauerhaft verteilte Android-Version
-brauchen wir einen gesicherten, stabilen Signaturschlüssel und einen Release-Build.
-Die temporären CI-Debug-Schlüssel können zwischen Läufen variieren; Updates über eine
-bereits installierte Testversion sind dann nicht möglich. Vor einer Deinstallation Daten exportieren.
-Keine Schlüssel oder Passwörter im Repository speichern.
+- GPS-based automatic shift and break detection
+- Native Android release (Play Store)
+- Push reminders for shift start and end
 
-## Firebase und Veröffentlichung
+## Author
 
-Das Projekt `taxi-logbook-d1104` und die Web-App sind eingerichtet. Details und
-noch erforderliche Android-Schritte stehen in `config/README.md`.
-`firebase.json` enthält Hosting sowie die Regeln aus `firestore.rules`.
-Zum öffentlichen Web-Hosting im eigenen Konto:
-
-```bash
-flutter build web --release --no-web-resources-cdn
-bash tool/deploy-hosting.sh
-```
-
-Eine Domain muss nicht gekauft werden: Firebase Hosting stellt `.web.app` bereit.
-Die Webversion ist öffentlich unter https://taxi-logbuch-preview.rztajalli.chatgpt.site erreichbar.
-Jeder Fahrer registriert sich und sieht die Daten seines eigenen Kontos. Die Web-App kann im Browser genutzt und zum Home-Bildschirm
-hinzugefügt werden; für sie müssen Benutzer keine neue APK bei Änderungen laden.
-Android-APKs sind direkt verteilbar, Updates müssen ohne eigenen Updater aber
-manuell installiert werden. Release-Updates benötigen denselben Signaturschlüssel.
-
-Das fertige Hosting-Paket enthält build/web, firebase.json, .firebaserc und
-`tool/deploy-hosting.sh`. Mit Node.js LTS kann es ohne lokale Flutter-Installation
-veröffentlicht werden. Die Anmeldung erfolgt im eigenen Google-Konto. Das Skript
-veröffentlicht ausschließlich Hosting und ändert keine Firestore-Regeln.
-
-## Pausen und Änderungsverlauf
-
-Firestore speichert Pausen unter `users/{uid}/pauses/{id}` und Fahrten unter
-`users/{uid}/trips/{id}`. Die bestehenden UID-Regeln gelten für beide Pfade.
-Fahrtänderungen und Löschmarkierungen lesen den aktuellen Datensatz in einer
-Transaktion, um den letzten Zustand vor der Änderung zu erhalten; sie benötigen
-Internet. Der Verlauf ist für die App bestimmt und kein unveränderliches Archiv.
-Früher endgültig gelöschte Einträge lassen sich damit nicht nachträglich wiederherstellen.
-JSON-Exporte enthalten alle aktuellen Fahrten einschließlich Löschmarkierungen,
-Änderungsverläufe und Pausen. Das lokale Format v1 wird weiter gelesen.
-
-GPS ist noch nicht aktiv. `PauseOrigin.gps` und die strikte Schwelle von mehr als
-15 Minuten Stillstand sind für die spätere Integration vorbereitet. Die Verbindung
-zum GPS, zuverlässige Stillstandserkennung und Abgrenzung von Wartezeit folgen später.
-
-
-## Schichten und Arbeitszeiten
-
-`users/{uid}/shifts/{id}` speichert Beginn, Ende und Erfassungsart; die bisherigen
-UID-Regeln gelten weiter. Anfang/Ende können manuell eingetragen oder durch
-Tippen auf Start/Ende erfasst werden. Schichtende beendet zugleich offene Pausen
-in einem atomaren Cloud-Batch. Überschneidungen werden anhand der geladenen
-Schichten abgelehnt; zwei gleichzeitig offline arbeitende Geräte können dennoch
-kollidieren. Zeitintervalle werden für tatsächliche Tages-/Monatswerte vereinigt.
-
-Der Monatsbericht zählt Tage mit erfassten Schichtzeiten auch ohne Fahrten.
-Nachtzeiten werden an lokaler Mitternacht aufgeteilt. Tatsächliche Arbeitszeit
-zieht ausschließlich erfasste Pausen innerhalb der Schichten ab. Die gewünschte
-Anrechnung für Schichten unter sechs Stunden wird separat ohne Pausenabzug
-angezeigt; dies ist keine gesetzliche Definition der Arbeitszeit. Es gibt keinen
-pauschalen Abzug von Pflichtpausen.
-
-Zeitwarnungen sind bei geöffneter App sichtbar: über 8 Stunden Arbeitszeit,
-ab 10 Stunden Arbeitszeit und ab 12 Stunden Schichtdauer. Sie sind kein vollständiger
-Compliance-Check und keine Hintergrund-/Push-Alarme. Allgemeine Hinweise beziehen
-sich auf §§ 2–4 ArbZG (https://www.gesetze-im-internet.de/arbzg/); Sonderregelungen,
-Ausgleichszeiträume und Ruhezeiten werden nicht vollständig geprüft. GPS ist noch
-nicht verbunden und startet/beendet keine Schicht automatisch.
-
-## Startseite
-
-Die App öffnet direkt Fahrten. Es gibt vier Ziele: Fahrten, Schichten, Monat und Profil. Ein separates Home entfällt. Die kompakte Tagesübersicht in Fahrten zeigt Tagesumsatz und Bar-Anteil für das ausgewählte Datum, unabhängig von Listenfiltern. Ausführliche Monatsberichte bleiben in Monat.
+**Reza Tajalli**, Mobile App Developer (Flutter · Android · iOS), Berlin
