@@ -1,0 +1,28 @@
+name: taxi_logbook
+description: Persönliches Fahrten- und Umsatzbuch für Taxifahrer.
+publish_to: none
+version: 0.1.0+1
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  shared_preferences: 2.5.3
+  firebase_core: ^4.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  # Pinned: image 4.11 needs a newer archive than pdf 3.12 allows.
+  image: ">=4.5.0 <4.11.0"
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - branding/logo.png

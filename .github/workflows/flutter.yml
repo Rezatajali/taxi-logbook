@@ -1,0 +1,81 @@
+name: Flutter prüfen und bauen
+on:
+  push:
+    branches: [main, codex/initial-logbook]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+      - name: Plattformen vorbereiten
+        run: bash tool/bootstrap.sh
+      - name: Statische Analyse
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Firebase live prüfen (temporäre Konten)
+        run: node tool/verify-firebase.mjs
+      - name: Web bauen
+        run: flutter build web --release --no-web-resources-cdn
+      - name: Firebase Hosting und Regeln veröffentlichen
+        # Needs the repository secret FIREBASE_SERVICE_ACCOUNT (service account
+        # JSON); without it this step only prints a notice.
+        if: github.ref == 'refs/heads/codex/initial-logbook' || github.ref == 'refs/heads/main'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::notice::Secret FIREBASE_SERVICE_ACCOUNT fehlt - Veröffentlichung übersprungen."
+            exit 0
+          fi
+          credentials="$RUNNER_TEMP/firebase-sa.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$credentials"
+          trap 'rm -f "$credentials"' EXIT
+          export GOOGLE_APPLICATION_CREDENTIALS="$credentials"
+          # Check the key's shape without printing any secret value.
+          node -e '
+            let key;
+            try { key = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); }
+            catch { console.log("::error::Secret ist kein gültiges JSON. Bitte die komplette JSON-Datei einfügen."); process.exit(1); }
+            const ok = key.type === "service_account" && key.private_key && key.client_email;
+            console.log("type:", key.type, "| project_id:", key.project_id, "| private_key vorhanden:", Boolean(key.private_key));
+            if (!ok) { console.log("::error::Secret ist kein Service-Account-Schlüssel (Firebase > Projekteinstellungen > Dienstkonten)."); process.exit(1); }
+            if (key.project_id !== "taxi-logbook-d1104") { console.log("::error::Schlüssel gehört zu einem anderen Projekt."); process.exit(1); }
+          ' "$credentials"
+          npm install --no-save --no-package-lock google-auth-library@9.15.1
+          node tool/deploy-firebase.mjs
+          echo "::notice::Veröffentlicht: https://taxi-logbook-d1104.web.app"
+      - name: Web-Artefakt sichern
+        # Artifact storage can run full; a missing download must not fail the build.
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxi-logbook-web
+          path: build/web
+          retention-days: 3
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android-Testversion bauen
+        run: flutter build apk --debug
+      - name: Android-Artefakt sichern
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: taxi-logbook-android-test
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 3
