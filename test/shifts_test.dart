@@ -96,7 +96,7 @@ void main() {
   testWidgets('Long shifts show no working-time warnings', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final store = LogbookStore(await SharedPreferences.getInstance())..load();
-    await store.saveShift(ShiftRecord(id: 'long', start: DateTime.now().subtract(const Duration(hours: 12))));
+    await store.saveShift(ShiftRecord(id: 'long', start: DateTime.now().subtract(const Duration(hours: 11))));
     await tester.pumpWidget(LogbookApp(store: store));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('work-warning')), findsNothing);

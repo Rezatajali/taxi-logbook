@@ -108,4 +108,20 @@ void main() {
     expect(store.shifts.single.end!.toLocal(), lastFare);
     expect(find.byKey(const Key('shift-auto-ended')), findsOneWidget);
   });
+
+  testWidgets('After 12 h a dialog says stop; OK ends the shift', (tester) async {
+    phone(tester);
+    final store = await freshStore();
+    final start = DateTime.now().subtract(const Duration(hours: 12, minutes: 20));
+    await store.saveShift(ShiftRecord(id: 'twelve', start: start));
+    await tester.pumpWidget(LogbookApp(store: store));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shift-limit-dialog')), findsOneWidget);
+    expect(store.shifts.single.running, isTrue);
+    await tester.tap(find.byKey(const Key('shift-limit-ok')));
+    await tester.pumpAndSettle();
+    expect(store.shifts.single.running, isFalse);
+    expect(find.byKey(const Key('shift-limit-dialog')), findsNothing);
+    expect(find.byKey(const Key('shift-ended-ok')), findsOneWidget);
+  });
 }
