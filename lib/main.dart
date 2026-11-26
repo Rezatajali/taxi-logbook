@@ -126,7 +126,7 @@ class LogbookHome extends StatefulWidget {
   State<LogbookHome> createState() => _LogbookHomeState();
 }
 
-class _LogbookHomeState extends State<LogbookHome> {
+class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
   Timer? workTimer;
   void updateWorkTimer() {
     if (widget.store.shifts.any((s) => s.running)) {
@@ -143,6 +143,7 @@ class _LogbookHomeState extends State<LogbookHome> {
     super.initState();
     widget.store.addListener(updateWorkTimer);
     updateWorkTimer();
+    WidgetsBinding.instance.addObserver(this);
   }
   @override
   void didUpdateWidget(covariant LogbookHome oldWidget) {
@@ -157,13 +158,28 @@ class _LogbookHomeState extends State<LogbookHome> {
   void dispose() {
     widget.store.removeListener(updateWorkTimer);
     workTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
 
   int tab = 0;
   DateTime month = DateTime(DateTime.now().year, DateTime.now().month);
-  DateTime day = DateUtils.dateOnly(DateTime.now());
+  // The selected day follows "today" until the driver picks another day, so an
+  // app left open overnight (or for days) never files new fares under an old date.
+  DateTime _day = DateUtils.dateOnly(DateTime.now());
+  bool _dayFollowsToday = true;
+  DateTime get day => _dayFollowsToday ? DateUtils.dateOnly(DateTime.now()) : _day;
+  set day(DateTime value) {
+    _day = DateUtils.dateOnly(value);
+    _dayFollowsToday = DateUtils.isSameDay(value, DateTime.now());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Back from the background: refresh "today" and the date-based views.
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
   String? sourceFilter;
   PaymentMethod? paymentFilter;
 
@@ -481,6 +497,36 @@ class _LogbookHomeState extends State<LogbookHome> {
     ]));
   }
 
+  static const _ignoredRepairsKey = 'ignored_date_repairs';
+
+  List<(Trip, DateTime)> get pendingDateRepairs {
+    final ignored = widget.store.preferences.getStringList(_ignoredRepairsKey) ?? const [];
+    return misdatedTrips(widget.store.trips).where((e) => !ignored.contains(e.$1.id)).toList();
+  }
+
+  /// Lets the driver move fares that were filed under an old date (#bugfix).
+  Future<void> reviewDateRepairs() async {
+    final repairs = pendingDateRepairs;
+    final selected = await showDialog<Set<String>>(context: context,
+      builder: (_) => DateRepairDialog(repairs: repairs));
+    if (selected == null || !mounted) return;
+    final store = widget.store;
+    final skipped = [for (final r in repairs) if (!selected.contains(r.$1.id)) r.$1.id];
+    var fixed = 0;
+    try {
+      for (final (trip, corrected) in repairs.where((r) => selected.contains(r.$1.id))) {
+        await store.saveTrip(Trip.fromJson({...trip.toJson(), 'at': corrected.toIso8601String()}));
+        fixed++;
+      }
+      await store.preferences.setStringList(_ignoredRepairsKey,
+        [...?store.preferences.getStringList(_ignoredRepairsKey), ...skipped]);
+      if (mounted) message('$fixed ${tr('Fahrten korrigiert.')}');
+    } catch (_) {
+      if (mounted) message(tr('Nicht gespeichert. Bitte erneut versuchen.'));
+    }
+    if (mounted) setState(() {});
+  }
+
   Widget tripsPage() {
     final shifts = widget.store.shifts;
     final dayTrips = tripsOnDay(widget.store.trips, day, shifts);
@@ -491,6 +537,16 @@ class _LogbookHomeState extends State<LogbookHome> {
       ..sort((a, b) => b.at.compareTo(a.at));
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       title(tr('Deine Fahrten'), tr('Dein Tag. Jede Fahrt im Blick.')),
+      if (widget.store.ready && pendingDateRepairs.isNotEmpty) Card(
+        key: const Key('date-repair-banner'),
+        color: Colors.amber.withValues(alpha: 0.18),
+        child: ListTile(
+          leading: const Icon(Icons.event_busy_outlined),
+          title: Text('${pendingDateRepairs.length} ${tr('Fahrten mit falschem Datum gefunden')}'),
+          subtitle: Text(tr('Sie wurden an einem späteren Tag eingegeben. Bitte prüfen.')),
+          trailing: FilledButton(onPressed: widget.store.saving ? null : reviewDateRepairs,
+            child: Text(tr('Prüfen'))),
+        )),
       Container(padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: BoxDecoration(color: surface, borderRadius: BorderRadius.circular(18)),
         child: Row(children: [
@@ -1322,4 +1378,42 @@ class _DeleteAccountDialogState extends State<DeleteAccountDialog> {
             : Text(tr('Endgültig löschen'))),
     ],
   );
+}
+
+/// Lists fares filed under an old date with their suggested date; all checked.
+class DateRepairDialog extends StatefulWidget {
+  const DateRepairDialog({super.key, required this.repairs});
+  final List<(Trip, DateTime)> repairs;
+  @override
+  State<DateRepairDialog> createState() => _DateRepairDialogState();
+}
+
+class _DateRepairDialogState extends State<DateRepairDialog> {
+  late final Set<String> selected = {for (final r in widget.repairs) r.$1.id};
+
+  @override
+  Widget build(BuildContext context) {
+    final date = DateFormat('dd.MM. HH:mm');
+    return AlertDialog(
+      title: Text(tr('Datum korrigieren')),
+      content: SizedBox(width: 420, child: ListView(shrinkWrap: true, children: [
+        Text(tr('Diese Fahrten wurden später eingegeben, als ihr Datum sagt. Ausgewählte Fahrten werden auf den Tag der Eingabe verschoben (Uhrzeit bleibt).')),
+        const SizedBox(height: 8),
+        for (final (trip, corrected) in widget.repairs) CheckboxListTile(
+          key: ValueKey('repair-${trip.id}'),
+          contentPadding: EdgeInsets.zero,
+          value: selected.contains(trip.id),
+          onChanged: (value) => setState(() =>
+              value == true ? selected.add(trip.id) : selected.remove(trip.id)),
+          title: Text('${money(trip.cents)} · ${trip.source}'),
+          subtitle: Text('${date.format(trip.at)}  →  ${date.format(corrected)}'),
+        ),
+      ])),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Abbrechen'))),
+        FilledButton(key: const Key('apply-date-repair'),
+          onPressed: () => Navigator.pop(context, selected), child: Text(tr('Korrigieren'))),
+      ],
+    );
+  }
 }

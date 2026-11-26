@@ -235,4 +235,11 @@ const translations = <String, List<String>>{
   'Wir senden dir einen Link zum Festlegen eines neuen Passworts an:': ['We\'ll send you a link to set a new password to:', 'یک لینک برای تعیین رمز جدید به این ایمیل می‌فرستیم:', 'Yeni şifre belirlemen için şu adrese bir bağlantı göndereceğiz:', 'سنرسل رابطًا لتعيين كلمة مرور جديدة إلى:'],
   'Link senden': ['Send link', 'ارسال لینک', 'Bağlantı gönder', 'إرسال الرابط'],
   'Link gesendet. Bitte E-Mail öffnen (auch Spam prüfen) und dort ein neues Passwort festlegen.': ['Link sent. Open the email (check spam too) and set a new password there.', 'لینک فرستاده شد. ایمیل را باز کن (اسپم را هم ببین) و آنجا رمز جدید بگذار.', 'Bağlantı gönderildi. E-postayı aç (spam\'i de kontrol et) ve orada yeni şifre belirle.', 'تم إرسال الرابط. افتح البريد (وتحقق من البريد العشوائي) وعيّن كلمة مرور جديدة هناك.'],
+  'Fahrten korrigiert.': ['rides corrected.', 'کرایه اصلاح شد.', 'yolculuk düzeltildi.', 'رحلات تم تصحيحها.'],
+  'Fahrten mit falschem Datum gefunden': ['rides with a wrong date found', 'کرایه با تاریخ اشتباه پیدا شد', 'yanlış tarihli yolculuk bulundu', 'رحلات بتاريخ خاطئ'],
+  'Sie wurden an einem späteren Tag eingegeben. Bitte prüfen.': ['They were entered on a later day. Please check.', 'این کرایه‌ها روز دیگری ثبت شده‌اند. لطفاً بررسی کن.', 'Daha sonraki bir günde girildiler. Lütfen kontrol et.', 'تم إدخالها في يوم لاحق. يرجى المراجعة.'],
+  'Prüfen': ['Check', 'بررسی', 'Kontrol et', 'مراجعة'],
+  'Datum korrigieren': ['Fix date', 'اصلاح تاریخ', 'Tarihi düzelt', 'تصحيح التاريخ'],
+  'Diese Fahrten wurden später eingegeben, als ihr Datum sagt. Ausgewählte Fahrten werden auf den Tag der Eingabe verschoben (Uhrzeit bleibt).': ['These rides were entered later than their date says. Selected rides move to the day they were entered (time stays).', 'این کرایه‌ها دیرتر از تاریخشان ثبت شده‌اند. کرایه‌های انتخاب‌شده به روزی که ثبت شده‌اند منتقل می‌شوند (ساعت تغییر نمی‌کند).', 'Bu yolculuklar tarihlerinden daha sonra girildi. Seçilenler girildikleri güne taşınır (saat aynı kalır).', 'أُدخلت هذه الرحلات بعد تاريخها. تُنقل الرحلات المحددة إلى يوم إدخالها (يبقى الوقت كما هو).'],
+  'Korrigieren': ['Correct', 'اصلاح کن', 'Düzelt', 'تصحيح'],
 };
