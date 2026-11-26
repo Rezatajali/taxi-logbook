@@ -306,3 +306,23 @@ Trip markTripDeleted(Trip previous, {DateTime? now}) {
   return Trip.fromJson({...previous.toJson(), 'deletedAt': changed.toIso8601String(),
     'history': [...previous.history, snapshot]});
 }
+
+/// When a fare was really entered: new fares get a microsecond timestamp as id.
+DateTime? tripCreatedAt(Trip trip) {
+  final micros = int.tryParse(trip.id);
+  if (micros == null || micros < DateTime(2024).microsecondsSinceEpoch) return null;
+  return DateTime.fromMicrosecondsSinceEpoch(micros);
+}
+
+/// Fares that look filed under a stale day: entered on a later day, but with
+/// exactly the entry's clock time on an earlier date. This happened when the
+/// app stayed open for days and kept the old "today". Returns the suggested
+/// corrected time (entry date + original clock time).
+List<(Trip, DateTime)> misdatedTrips(Iterable<Trip> trips) => [
+  for (final trip in trips)
+    if (!trip.deleted)
+      if (tripCreatedAt(trip) case final created?)
+        if (!sameDay(created, trip.at) && created.isAfter(trip.at.add(const Duration(hours: 12))) &&
+            created.hour == trip.at.hour && created.minute == trip.at.minute)
+          (trip, DateTime(created.year, created.month, created.day, trip.at.hour, trip.at.minute)),
+]..sort((a, b) => a.$2.compareTo(b.$2));
