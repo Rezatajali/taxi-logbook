@@ -249,4 +249,7 @@ const translations = <String, List<String>>{
   'Ruhezeit': ['Rest period', 'زمان استراحت', 'Dinlenme süresi', 'فترة الراحة'],
   'Nach einer Schicht sind mindestens 11 Stunden Pause vorgeschrieben. Neue Schicht erst ab': ['After a shift at least 11 hours of rest are required. New shift only from', 'بعد از هر شیفت حداقل ۱۱ ساعت استراحت لازم است. شیفت جدید فقط از', 'Bir vardiyadan sonra en az 11 saat dinlenme gerekir. Yeni vardiya en erken', 'بعد الوردية يلزم 11 ساعة راحة على الأقل. وردية جديدة فقط من'],
   'Trotzdem starten': ['Start anyway', 'با این حال شروع کن', 'Yine de başlat', 'ابدأ على أي حال'],
+  '12 Stunden erreicht': ['12 hours reached', '۱۲ ساعت تمام شد', '12 saate ulaşıldı', 'تم بلوغ 12 ساعة'],
+  'Du darfst heute nicht weiterarbeiten. Mit OK wird die Schicht beendet. Ohne OK wird sie nach spätestens 1 Stunde automatisch beendet.': ['You may not keep working today. OK ends the shift. Without OK it ends automatically within 1 hour.', 'امروز دیگر اجازه کار نداری. با OK شیفت بسته می‌شود. اگر OK نزنی، حداکثر ۱ ساعت بعد خودکار بسته می‌شود.', 'Bugün daha fazla çalışamazsın. OK ile vardiya biter. OK\'ye basmazsan en geç 1 saat sonra otomatik biter.', 'لا يُسمح لك بمواصلة العمل اليوم. اضغط OK لإنهاء الوردية. بدون OK تنتهي تلقائيًا خلال ساعة على الأكثر.'],
+  'Schicht beendet. Ende:': ['Shift ended. End:', 'شیفت بسته شد. پایان:', 'Vardiya bitti. Bitiş:', 'انتهت الوردية. النهاية:'],
 };

@@ -249,6 +249,46 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
     ..showSnackBar(SnackBar(key: key, duration: const Duration(seconds: 6), content: Text(text)));
 
   bool _enforcing = false;
+  final _limitShown = <String>{};
+  final _limitRoutes = <String, Route<void>>{};
+
+  void _closeLimitDialog(String shiftId) {
+    final route = _limitRoutes.remove(shiftId);
+    if (route != null && route.isActive) Navigator.of(context).removeRoute(route);
+  }
+
+  /// "12 hours reached" dialog. OK ends the shift now (at most start + 13 h).
+  Future<void> showShiftLimitDialog(ShiftRecord shift) async {
+    final route = DialogRoute<void>(context: context, barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('shift-limit-dialog'),
+        icon: const Icon(Icons.timer_off_outlined),
+        title: Text(tr('12 Stunden erreicht')),
+        content: Text(tr('Du darfst heute nicht weiterarbeiten. Mit OK wird die Schicht beendet. Ohne OK wird sie nach spätestens 1 Stunde automatisch beendet.')),
+        actions: [
+          FilledButton(key: const Key('shift-limit-ok'), onPressed: () async {
+            Navigator.pop(dialogContext);
+            final current = widget.store.shifts.where((s) => s.id == shift.id && s.running).firstOrNull;
+            if (current == null) return;
+            final now = DateTime.now();
+            final hard = shiftHardEnd(current);
+            final end = now.isAfter(hard) ? hard : now;
+            try {
+              await widget.store.finishShift(current, end.toUtc());
+              if (mounted) {
+                showMessage(const Key('shift-ended-ok'),
+                  '${tr('Schicht beendet. Ende:')} ${DateFormat('dd.MM. HH:mm').format(end)}');
+              }
+            } catch (_) {
+              // The automatic close after the tolerance hour still applies.
+            }
+          }, child: const Text('OK')),
+        ],
+      ));
+    _limitRoutes[shift.id] = route;
+    await Navigator.of(context).push(route);
+    _limitRoutes.remove(shift.id);
+  }
 
   /// Closes running shifts after 12 h + 1 h tolerance (end = last fare).
   Future<void> enforceShiftRules() async {
@@ -259,7 +299,15 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
       final now = DateTime.now();
       for (final shift in store.shifts.where((s) => s.running).toList()) {
         final end = automaticShiftEnd(shift, store.trips, now);
-        if (end == null) continue;
+        if (end == null) {
+          // 12 hours reached: tell the driver to stop. Without OK the shift is
+          // closed automatically once the 1-hour tolerance is over.
+          if (!now.isBefore(shiftLatestEnd(shift)) && _limitShown.add(shift.id) && mounted) {
+            showShiftLimitDialog(shift);
+          }
+          continue;
+        }
+        _closeLimitDialog(shift.id);
         await store.finishShift(shift, end.toUtc());
         if (mounted) {
           showMessage(const Key('shift-auto-ended'),
