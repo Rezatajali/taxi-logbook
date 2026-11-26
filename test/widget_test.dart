@@ -26,6 +26,9 @@ void main() {
     expect(store.trips.single.cents, 2270);
     expect(store.trips.single.kilometers, isNull);
     expect(tester.takeException(), isNull);
+    // Let the "shift started" message disappear so it does not cover the list.
+    await tester.pump(const Duration(seconds: 8));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Fahrten'));
     await tester.pumpAndSettle();

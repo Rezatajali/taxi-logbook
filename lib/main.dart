@@ -26,6 +26,7 @@ import 'pause_screen.dart';
 import 'pdf_report.dart';
 import 'package:printing/printing.dart';
 import 'shifts.dart';
+import 'shift_rules.dart';
 
 // Colours follow the active light/dark palette (see palette.dart).
 Color get ink => palette.ink;
@@ -131,7 +132,7 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
   void updateWorkTimer() {
     if (widget.store.shifts.any((s) => s.running)) {
       workTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
-        if (mounted) setState(() {});
+        if (mounted) { setState(() {}); enforceShiftRules(); }
       });
     } else {
       workTimer?.cancel();
@@ -144,6 +145,7 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
     widget.store.addListener(updateWorkTimer);
     updateWorkTimer();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => enforceShiftRules());
   }
   @override
   void didUpdateWidget(covariant LogbookHome oldWidget) {
@@ -178,7 +180,7 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // Back from the background: refresh "today" and the date-based views.
-    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+    if (state == AppLifecycleState.resumed && mounted) { setState(() {}); enforceShiftRules(); }
   }
   String? sourceFilter;
   PaymentMethod? paymentFilter;
@@ -214,25 +216,62 @@ class _LogbookHomeState extends State<LogbookHome> with WidgetsBindingObserver {
     if (created != null && mounted) offerShiftStart(created);
   }
 
-  /// After a new fare outside any shift, offer to start a shift (#3).
+  /// Shift rules after a new fare: start a shift automatically, unless the
+  /// 11-hour rest after the last shift is not over yet.
   void offerShiftStart(Trip trip) {
     final store = widget.store;
     if (!store.shiftsReady || !store.ready) return;
     final now = DateTime.now();
-    final inShift = store.shifts.any((s) => s.running ||
+    final inShift = store.shifts.any((s) => (s.running && !trip.at.isBefore(s.start)) ||
         (!trip.at.isBefore(s.start) && !trip.at.isAfter(s.end ?? now)));
     // Only for fares of the last 12 hours; older entries are corrections.
-    if (inShift || now.difference(trip.at).abs() > const Duration(hours: 12)) return;
+    if (inShift || now.difference(trip.at).abs() > maxShiftLength) return;
+    final time = DateFormat('dd.MM. HH:mm');
+    final rest = restUntil(store.shifts, trip.at);
+    if (rest != null) {
+      showMessage(const Key('rest-warning'),
+        '${tr('Ruhezeit nicht eingehalten: neue Schicht erst ab')} ${time.format(rest.toLocal())}.');
+      return;
+    }
     final start = trip.at.isAfter(now) ? now : trip.at;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      key: const Key('shift-reminder'),
-      duration: const Duration(seconds: 8),
-      content: Text(tr('Keine Schicht aktiv. Schicht jetzt starten?')),
-      action: SnackBarAction(label: tr('Schicht anfangen'), onPressed: () {
-        store.saveShift(ShiftRecord(id: 'shift-${now.microsecondsSinceEpoch}',
-          start: start, origin: ShiftOrigin.timer)).catchError((_) {});
-      }),
-    ));
+    final shift = ShiftRecord(id: 'shift-${now.microsecondsSinceEpoch}', start: start.toUtc(),
+      origin: ShiftOrigin.timer);
+    store.saveShift(shift).then((_) {
+      if (mounted) {
+        showMessage(const Key('shift-auto-started'),
+          '${tr('Schicht automatisch gestartet. Spätestens Ende:')} ${time.format(shiftLatestEnd(shift).toLocal())}');
+      }
+    }).catchError((_) {});
+  }
+
+  void showMessage(Key key, String text) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(key: key, duration: const Duration(seconds: 6), content: Text(text)));
+
+  bool _enforcing = false;
+
+  /// Closes running shifts after 12 h + 1 h tolerance (end = last fare).
+  Future<void> enforceShiftRules() async {
+    final store = widget.store;
+    if (_enforcing || !store.ready || !store.shiftsReady || !store.pausesReady || store.saving) return;
+    _enforcing = true;
+    try {
+      final now = DateTime.now();
+      for (final shift in store.shifts.where((s) => s.running).toList()) {
+        final end = automaticShiftEnd(shift, store.trips, now);
+        if (end == null) continue;
+        await store.finishShift(shift, end.toUtc());
+        if (mounted) {
+          showMessage(const Key('shift-auto-ended'),
+            '${tr('Schicht nach 12 Stunden automatisch beendet. Ende:')} '
+            '${DateFormat('dd.MM. HH:mm').format(end.toLocal())}');
+        }
+      }
+    } catch (_) {
+      // Retried on the next timer tick or when the app is opened again.
+    } finally {
+      _enforcing = false;
+    }
   }
 
   @override

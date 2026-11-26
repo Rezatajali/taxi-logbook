@@ -242,4 +242,11 @@ const translations = <String, List<String>>{
   'Datum korrigieren': ['Fix date', 'اصلاح تاریخ', 'Tarihi düzelt', 'تصحيح التاريخ'],
   'Diese Fahrten wurden später eingegeben, als ihr Datum sagt. Ausgewählte Fahrten werden auf den Tag der Eingabe verschoben (Uhrzeit bleibt).': ['These rides were entered later than their date says. Selected rides move to the day they were entered (time stays).', 'این کرایه‌ها دیرتر از تاریخشان ثبت شده‌اند. کرایه‌های انتخاب‌شده به روزی که ثبت شده‌اند منتقل می‌شوند (ساعت تغییر نمی‌کند).', 'Bu yolculuklar tarihlerinden daha sonra girildi. Seçilenler girildikleri güne taşınır (saat aynı kalır).', 'أُدخلت هذه الرحلات بعد تاريخها. تُنقل الرحلات المحددة إلى يوم إدخالها (يبقى الوقت كما هو).'],
   'Korrigieren': ['Correct', 'اصلاح کن', 'Düzelt', 'تصحيح'],
+  'Ruhezeit nicht eingehalten: neue Schicht erst ab': ['Rest period not over: new shift only from', 'زمان استراحت تمام نشده: شیفت جدید فقط از', 'Dinlenme süresi dolmadı: yeni vardiya en erken', 'لم تنتهِ فترة الراحة: وردية جديدة فقط من'],
+  'Schicht automatisch gestartet. Spätestens Ende:': ['Shift started automatically. Latest end:', 'شیفت خودکار شروع شد. حداکثر تا:', 'Vardiya otomatik başladı. En geç bitiş:', 'بدأت الوردية تلقائيًا. آخر موعد للانتهاء:'],
+  'Schicht nach 12 Stunden automatisch beendet. Ende:': ['Shift ended automatically after 12 hours. End:', 'شیفت بعد از ۱۲ ساعت خودکار بسته شد. پایان:', 'Vardiya 12 saat sonra otomatik bitti. Bitiş:', 'انتهت الوردية تلقائيًا بعد 12 ساعة. النهاية:'],
+  'Spätestens Ende:': ['Latest end:', 'حداکثر تا:', 'En geç bitiş:', 'آخر موعد للانتهاء:'],
+  'Ruhezeit': ['Rest period', 'زمان استراحت', 'Dinlenme süresi', 'فترة الراحة'],
+  'Nach einer Schicht sind mindestens 11 Stunden Pause vorgeschrieben. Neue Schicht erst ab': ['After a shift at least 11 hours of rest are required. New shift only from', 'بعد از هر شیفت حداقل ۱۱ ساعت استراحت لازم است. شیفت جدید فقط از', 'Bir vardiyadan sonra en az 11 saat dinlenme gerekir. Yeni vardiya en erken', 'بعد الوردية يلزم 11 ساعة راحة على الأقل. وردية جديدة فقط من'],
+  'Trotzdem starten': ['Start anyway', 'با این حال شروع کن', 'Yine de başlat', 'ابدأ على أي حال'],
 };
