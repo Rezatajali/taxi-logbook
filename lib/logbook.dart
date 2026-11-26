@@ -131,8 +131,9 @@ int weekRevenue(Iterable<Trip> trips, DateTime start, [Iterable<ShiftRecord> shi
   }), shifts: shifts).totalCents;
 }
 
-/// A forgotten running shift must not pull fares of later days into it.
-const maxOpenShift = Duration(hours: 24);
+/// A forgotten running shift must not pull fares of later days into it:
+/// shifts end after at most 12 h plus 1 h tolerance (see shift_rules.dart).
+const maxOpenShift = Duration(hours: 13);
 
 /// The working day a fare belongs to: the local start day of the shift that
 /// contains it. A fare at 01:00 in a shift that started at 17:00 counts for the

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'pauses.dart';
 import 'pause_screen.dart';
 import 'shifts.dart';
+import 'shift_rules.dart';
 import 'store.dart';
 
 class ShiftPanel extends StatelessWidget {
@@ -19,6 +20,27 @@ class ShiftPanel extends StatelessWidget {
           error is FormatException ? error.message : tr('Schicht konnte nicht gespeichert werden. Bitte erneut versuchen.'))));
       }
     }
+  }
+
+  /// Starts a shift now; warns first if the 11-hour rest is not over.
+  Future<void> startShift(BuildContext context) async {
+    final now = DateTime.now();
+    final rest = restUntil(store.shifts, now);
+    if (rest != null) {
+      final ok = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+        title: Text(tr('Ruhezeit')),
+        content: Text('${tr('Nach einer Schicht sind mindestens 11 Stunden Pause vorgeschrieben. Neue Schicht erst ab')} '
+          '${DateFormat('dd.MM. HH:mm').format(rest.toLocal())}.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(tr('Abbrechen'))),
+          TextButton(key: const Key('start-shift-anyway'),
+            onPressed: () => Navigator.pop(dialogContext, true), child: Text(tr('Trotzdem starten'))),
+        ],
+      ));
+      if (ok != true || !context.mounted) return;
+    }
+    await write(context, () => store.saveShift(ShiftRecord(id: now.microsecondsSinceEpoch.toString(),
+      start: now.toUtc(), origin: ShiftOrigin.timer)));
   }
 
   Future<void> manual(BuildContext context, [ShiftRecord? shift]) async {
@@ -47,13 +69,13 @@ class ShiftPanel extends StatelessWidget {
       const SizedBox(height: 12),
       if (!store.shiftsReady) Text(tr('Schichten werden geladen …')),
       if (active.isEmpty) SizedBox(width: double.infinity, child: FilledButton.icon(
-        key: const Key('start-shift'), onPressed: enabled ? () => write(context, () =>
-          store.saveShift(ShiftRecord(id: DateTime.now().microsecondsSinceEpoch.toString(),
-            start: DateTime.now().toUtc(), origin: ShiftOrigin.timer))) : null,
+        key: const Key('start-shift'), onPressed: enabled ? () => startShift(context) : null,
         icon: const Icon(Icons.play_circle_outline), label: Text(tr('Schicht anfangen')))),
       for (final shift in active) Card(child: Padding(padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Schicht läuft · seit ${DateFormat('dd.MM. HH:mm').format(shift.start.toLocal())}'),
+          Text('${tr('Spätestens Ende:')} ${DateFormat('dd.MM. HH:mm').format(shiftLatestEnd(shift).toLocal())}',
+            key: ValueKey('latest-end-${shift.id}'), style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
           FilledButton.icon(key: ValueKey('finish-shift-${shift.id}'),
             onPressed: enabled && store.pausesReady ? () => write(context,
